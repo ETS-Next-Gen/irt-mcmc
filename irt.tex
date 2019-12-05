@@ -1,0 +1,62 @@
+\documentclass{article}
+
+\begin{document}
+
+\title{Item Response Theory - Computational Problem}
+%\author{Author's Name}
+
+\maketitle
+
+\begin{abstract}
+The abstract text goes here.
+\end{abstract}
+
+\section{Model}
+In psychometrics, item response theory (IRT) (also known as latent trait theory) is a paradigm for the design, analysis, and scoring of tests, questionnaires, and similar instruments measuring abilities, attitudes, or other variables. It is a theory of testing based on the relationship between individuals' performances on a test item and the test takers' levels of performance on an overall measure of the ability that item was designed to measure.
+
+We describe a simplified statistical model used by IRT practitioners. A test is a set of $M \approx 200$ items (multiple-choice questions).$N \approx 10^5$ students take the test; however, each student $i$ answers only a different subset $J_i$ of size $|J_i| \approx 40$ items (some students may share the same subset). Student $i$'s response to item $j$ is denoted by $y_{ij}$, which is binary ($1$ is the answer was correct, otherwise $0$).
+
+The test measures a latent ability $\theta \in R^K$. In the application at hand, $K=5$.
+
+The student's response to item $j$ is modeled by an Item Response Function (IRF). A common choice is a {\it three parameter logistic model (3PL)}. The probability of a correct response is:
+\begin{equation}
+  p_j(\theta) = c_j + \frac{1 - c_j}{1 + e^{-a_j (\theta - b_j)}}
+\end{equation}
+The unknown parameters $a_j, b_j, c_j$ represent the discrimination, difficulty and guessing chance for the item.
+
+Additionally, we assume that the trait is normally distributed with unknown mean $\mu$ and recpirocal standard deviation $\sigma$.
+
+The problem is to estimate the parameters $\Delta := (a_1,  b_1, c_1, \dots, a_M, b_M, c_M, \mu, \sigma)$ given the responses $Y = \left\{ y_{ij} \right\}_{i,j}$. This is done by maximizing the log likelihood
+
+\begin{equation}
+	L(Y;\Delta) := \sum_{i=1}^N \log \int_{\theta} \prod_{j \in J_i} p_j(\theta)^{y_{ij}} (1 - p_j(\theta))^{1-y_{ij}} e^{-\sigma^2 (\theta-\mu)^2} d \theta\,.
+\end{equation}
+
+The notation with $y_{ij}$ and $1-y_{ij}$ is a convenience; it simply means we have a $p_j$ term if $y_{ij}=1$, otherwise a $1-p_j$ term.
+
+(In the full model, $\theta$ is further assumed to be $X \gamma$, where $X$ is a $d \times K$ matrix of student $d$ predictors (demographic information) and $\gamma \in R^d$, but since I don't fully understand yet this part, it is omitted for now.)
+
+The optimization algorithm is either Expectation Maximization (EM) or damped Newton (Newton with a small, controlled step size). At each iteration of updating $\Delta$, $L$ is numerically evaluated using a Gaussian quadrature rule, so the complexity is $40 N q^K$, where $q$ is the number of quadrature points for each $\theta$ dimension. This is computationally expensive for $K > 1$, which makes IRT computationally feasible typically for $K = 1$ only.
+
+
+\section{Ideas for Faster Solution}
+\subsection{Simpler Sub-problems}
+\begin{itemize}
+\item $K=1$ (scalar trait).
+\item $J=1$ (single item test). However, this does not capture the problem of different subsets $J_i$ for different students.
+\end{itemize}
+\subsection{Fast Evaluation}
+\begin{itemize}
+\item Parameter values are typically reasonable so that the integrand and therefore $L$ are smooth as a function of $\Delta$. Create a pre-computed table of values of $L$ over a grid, and interpolate $L$ from that grid every time we need to evaluate. The problem is that the grid itself suffers from a volume factor, since $\Delta$ contains $3M+1$ parameters.
+
+\item If all students answer the same subset of items, create a tree representing a hierarchy of student populations: partition first to students that answered the first item correctly, and those that answered it incorrectly. Each subset shares the same term in the product in $L$, so we can calculate the integrals collectively by further breaking down the students by the second item response, etc. This would save a factor of $J / \log_2 J$ in calculating the $N$ integrals. But, students answer different item subsets, so this doesn't work.
+
+\item Treat $L$ as an integral transform with $y$ being a continuous variable, and try to interpolate in both $\Delta$ and $y$ from a coarse grid. But again, $y$ has a large dimension ($N$), so the $y$-grid would be large.
+
+\end{itemize}
+
+\subsection{Fast Optimization}
+\begin{itemize}
+\item Group variables in $\Delta$ based on trial functions; collective updates.
+\end{itemize}
+\end{document}

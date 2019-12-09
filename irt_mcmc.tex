@@ -1,0 +1,151 @@
+\documentclass{article}
+\usepackage{amsmath}
+\usepackage{amssymb}
+
+\newcommand{\Normal}{\mathcal{N}}
+\newcommand{\G}{\mathcal{G}}
+\newcommand{\R}{\mathbb{R}}
+\newcommand{\bX}{\mathbf{X}}
+\newcommand{\bY}{\mathbf{Y}}
+\newcommand{\bt}{\boldsymbol\tau}
+\newcommand{\st}{\sigma_{\ta}^2}
+\newcommand{\ta}{\theta}
+
+\begin{document}
+
+\title{Item Response Theory - MCMC Formulation}
+\author{Oren Livne}
+\date{\today}
+
+\maketitle
+
+\begin{abstract}
+  We describe a basic Item response theory model for the National Assessment of
+  Educational Progress (NAEP) data, and the standard Monte Carlo Markov Chain (MCMC)
+  algorithm for estimating of target quantities, which in this case are
+  performance metrics of different student populations.
+\end{abstract}
+
+\section{Model}
+Item response theory (IRT) (also known as latent trait theory) is a psychometric paradigm for the design, analysis, and scoring of tests, questionnaires, and similar instruments measuring abilities, attitudes, or other variables. It is a theory of testing based on the relationship between individuals' performances on a test item and the test takers' levels of performance on an overall measure of the ability that item was designed to measure.
+
+The NAEP model contains several assumptions (e.g., specific prior distributions on student
+latest abilities and item asymptotes \cite{matt02}). The model described here is a simplified
+version that more or less follows \cite[Sec. 1.7]{junker}. This version should (a) be a stepping
+stone towards more comprehensive models of NAEP data that still contains the main computational
+challenge of speedinfg up MCMC convergence; and (b) provide more accurate and fair estimates
+of the parameters and target quantities. Instead of placing assumptions on the distribution of
+latest ability as a function of background variables, we propose to estimate latest abilities
+without presumptions in the MCMC, then calculate their statistics and correlation with
+the background variables. 
+
+\subsection{Observed Data}
+A test is a set of $M \approx 200$ items. For simplicity, we assume all items are multiple-choice. $N \approx 10^5$ persons take the test. Each person $p$ answers a different subset $I_p$ of size $|I_p| \approx 40$ items (some persons may share the same subset). Person $p$'s response to item $j$ is denoted by the binary $X_{pj}$ ($X_{pj}=1$ is the answer was correct, $0$ otherwise). 
+
+Also available is a matrix $\bY \in \R^{N \times B}$ of background variables for all persons.
+
+\subsection{Unknowns}
+The test measures a latent ability $\ta \in \R^K$. In the ETS NAEP data, $K=5$. $\ta_p$ denotes the unknown ability of student $p$
+
+A person's response to item $i$ is modeled by an Item Response Function (IRF). A basic choice is a {\it three-parameter logistic model (3PL)}. The probability of a correct response is assumed to be
+\begin{equation}
+  P_i(\ta_p; \beta_i) = P[X_{pi} = 1 | \ta_p,\beta_i] = \pi_i + (1-\pi_i) \frac{e^{-a_i (\ta - b_i)}}{1 + e^{-a_i (\ta - b_j)}}\,.
+\end{equation}
+We fix $\pi_j \equiv 0.2$ (assuming five-choice items). The unknown item parameters $\beta_i := (a_j, b_j)$ represent the discrimination and difficulty of the item, respectively. The density for $X_{pi}$ is
+\begin{equation}
+  f(x_{pi}|\ta_p;\beta_i) = P_i(\ta_p;a_i,b_i)^{x_{pi}} \left(1 - P_i(\ta_p;a_i,b_i)\right)^{1-x_{pi}}\,.
+\end{equation}
+We denote by $\bt := (\ta_1, \dots, \ta_N, \beta_1, \dots, \beta_M)$ the concatenated vector of all unknowns.
+
+\subsection{Posterior Distribution}
+By Bayes' theorem, the posterior distribution of parameters given the responses is proportional to
+\begin{equation}
+  f(\bX|\bt) f(\bt) = \prod_{p=1}^N \left\{ \prod_{i \in I_p} f(X_{pi}|\ta_p,\beta_i) \right\} f_p(\ta_p|\st) f(\st)\,.
+  \label{model}
+\end{equation}
+The $p$ is due to the experimental independence assumption in IRT and the product over $i$ is due to IRT’s local independence assumption. It is also typical to specify independent priors for parameters. In (\ref{model}) we assumed an informative prior only on $\ta_p$ with the hyperparameter $\st$ whose hyper-distribution is $f(\st)$. For convenience, we add $\st$ as the last entry of $\bt$, which has a total of $T := K P + 2 I + 1$ elements. The following distributions are used, and fully specify the model:
+\begin{eqnarray}
+	X_{pi} &\sim& {\mbox{Bernoulli}}(y_{pi})
+	\label{dist_x} \\
+	\ln \frac{y_{pi}}{y_{pi}+1} &\sim& a_i (\ta_p - b_i)
+	\label{dist_y} \\
+	\ta_p &\sim& \Normal(0, \st)
+	\label{dist_ta} \\
+	\st &\sim& IG(\alpha_{\ta}, \beta_{\ta})
+	\label{dist_st} \\
+	\alpha_{\ta}, \beta_{\ta} && {\mbox{pre-specified: }} \alpha_{\ta} = \beta_{\ta} = 1
+	\label{dist_ab}
+\end{eqnarray}
+for all $p=1,\dots,P$ and $i=1,\dots,I$. $IG$ denotes the inverse gamma distribution.
+
+\subsection{Target Quantities}
+One of NAEP's goals is to measure the mean of some function $g(\cdot)$ of proficiency scores $\ta$ over all individuals in some sub-population $\G$. The Nation's Report Card reports results on the composite scale, which is a weighted average of sub-scales, $g(\ta) = a^T \ta$ for some fixed $a$. The Nation's Report Card also reports the proportion of students in $\G$ whose composite score is in some pre-defined achievement range, i.e.,
+\begin{equation}
+	g(\ta) = I_{(l,u)}(a^T \ta) =
+  \begin{cases}
+    1, & a^T \ta \in (l,u), \\
+    0, & a^T \ta \not \in (l,u)\,.
+  \end{cases}
+\end{equation}
+
+\section{MCMC Algorithm}
+Thanks to the factorized form of (\ref{model}), it follows from (\ref{model})--(\ref{dist_ab}) that the complete conditional densities for the individual parameters are
+\begin{eqnarray}
+  f(\ta_p|rest) &\propto& \prod_{i \in I_p} 
+  P_i(\ta_p;a_i,b_i)^{x_{pi}} 
+  \left(1 - P_i(\ta_p;a_i,b_i)\right)^{1-x_{pi}} 
+  \Normal(\ta_p|0,\st)\,, \forall p\,,
+  \label{cond_ta}
+  \\
+  f(a_i|rest) &\propto& \prod_{p} 
+  P_i(\ta_p;a_i,b_i)^{x_{pi}} 
+  \left(1 - P_i(\ta_p;a_i,b_i)\right)^{1-x_{pi}} 
+  \Normal(\ta_p|0,\st)\,, \forall I\,,
+  \label{cond_a}
+  \\
+  f(b_i|rest) &\propto& \prod_{p} 
+  P_i(\ta_p;a_i,b_i)^{x_{pi}} 
+  \left(1 - P_i(\ta_p;a_i,b_i)\right)^{1-x_{pi}} 
+  \Normal(\ta_p|0,\st)\,, \forall I\,,
+  \label{cond_b}
+  \\
+  f(\st|rest) &\propto& \prod_{p} 
+  \Normal(\ta_p|0,\st) IG(\st|\alpha_{\ta},\beta_{\ta}) \\
+  &=& IG\left(\st|\alpha_{\ta} + \frac{P}{2}, \beta_{\ta} + \frac12 \sum_p \ta_p^2\right)\,.
+  \label{cond_st}
+\end{eqnarray}
+A Hastings-Metropolis step for a parameter $\tau_t$, $t=1,\dots,T$ requires a proposal distribution $q(\tau^*|tau_t)$. Assuming symmetric $q$, the step is
+\begin{enumerate}
+	\item Generate a candidate $\tau^*$ using the probability density $q(\tau^*|tau_t)$.
+	\item Calculate the acceptance probability
+	\begin{equation}
+		\alpha_* := \min\left\{1, \frac{f(\tau^*|rest)}{f(\tau_t|rest)} \right\}\,.
+	\end{equation}
+	\item Set $\tau_t \leftarrow tau^*$ with probability $\alpha^*$, otherwise leave $\tau_t$ unchanged.
+\end{enumerate}
+
+\section{Fast MCMC - Questions/Ideas}
+\begin{itemize}
+	\item How to measure convergence, i.e., equilibration = convergence to the stationary distribution? 
+	\item How to efficiently generate independent configurations from the stationary distribution once we converged
+	(so that we can estimate target quantities with a reasonably-sized sample)?
+	\item Initial guess for parameters: in general, by continuation. But one should define the coarse variables
+	to be able to continue from a coarser scale, and we don't have them yet. So, one could define the $\ta$'s
+	from the fraction of correct responses of a student on the corresponding questions (relative to the general
+	population average, which is defined as $\ta=0$ by our model).
+	\item Find a coarse variable set using clustering. $\ta_p$'s should probably be clustered separately. 	Possibly also $a_i$'s and $b_i$'s; or one could just coarsen all of the $\beta_i$'s.
+	\item Measure coarse variable set quality by Compatible MC (CMC)'s convergence rate. Since this should be a fast convergence for a good set, convergence of target quantities may suffice to define the convergence rate here.
+\end{itemize}
+
+\section{Generalizations}
+\begin{itemize}
+	\item Let the item guessing probability $\pi_j$ be a model parameter instead of fixed. In the NAEP model,
+	the prior is $\pi_j \sim {\mbox{Beta}}(a_{\pi}, b_{\pi})$ where $a_{\pi}=10, b_{\pi}=40$ might be used for a five
+	choice item \cite{matt02}. Apparently, varying $\pi$ gives rise to a different correlation structure among the $a$'s and $b$'s than for fixed $\pi$.
+	\item Add constructed response item type.
+\end{itemize}
+
+\bibliographystyle{alpha}
+\bibliography{irt_mcmc}
+
+\end{document}

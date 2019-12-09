@@ -94,34 +94,34 @@ Thanks to the factorized form of (\ref{model}), it follows from (\ref{model})--(
   f(\ta_p|rest) &\propto& \prod_{i \in I_p} 
   P_i(\ta_p;a_i,b_i)^{x_{pi}} 
   \left(1 - P_i(\ta_p;a_i,b_i)\right)^{1-x_{pi}} 
-  \Normal(\ta_p|0,\st)\,, \forall p\,,
+  \Normal(\ta_p|0,\st),\forall p\,
   \label{cond_ta}
   \\
   f(a_i|rest) &\propto& \prod_{p} 
   P_i(\ta_p;a_i,b_i)^{x_{pi}} 
   \left(1 - P_i(\ta_p;a_i,b_i)\right)^{1-x_{pi}} 
-  \Normal(\ta_p|0,\st)\,, \forall I\,,
+  \Normal(\ta_p|0,\st),\forall I\,
   \label{cond_a}
   \\
   f(b_i|rest) &\propto& \prod_{p} 
   P_i(\ta_p;a_i,b_i)^{x_{pi}} 
   \left(1 - P_i(\ta_p;a_i,b_i)\right)^{1-x_{pi}} 
-  \Normal(\ta_p|0,\st)\,, \forall I\,,
+  \Normal(\ta_p|0,\st),\forall I\,
   \label{cond_b}
   \\
   f(\st|rest) &\propto& \prod_{p} 
-  \Normal(\ta_p|0,\st) IG(\st|\alpha_{\ta},\beta_{\ta}) \\
+  \Normal(\ta_p|0,\st) IG(\alpha_{\ta},\beta_{\ta}) \\
   &=& IG\left(\st|\alpha_{\ta} + \frac{P}{2}, \beta_{\ta} + \frac12 \sum_p \ta_p^2\right)\,.
   \label{cond_st}
 \end{eqnarray}
-A Hastings-Metropolis step for a parameter $\tau_t$, $t=1,\dots,T$ requires a proposal distribution $q(\tau^*|tau_t)$. Assuming symmetric $q$, the step is
+A Hastings-Metropolis step for a parameter $\tau_t$, $t=1,\dots,T$ requires a proposal distribution $q(\tau^*|\tau_t)$. Assuming symmetric $q$, the step is
 \begin{enumerate}
-	\item Generate a candidate $\tau^*$ using the probability density $q(\tau^*|tau_t)$.
+	\item Generate a candidate $\tau^*$ using the probability density $q(\tau^*|\tau_t)$.
 	\item Calculate the acceptance probability
 	\begin{equation}
 		\alpha_* := \min\left\{1, \frac{f(\tau^*|rest)}{f(\tau_t|rest)} \right\}\,.
 	\end{equation}
-	\item Set $\tau_t \leftarrow tau^*$ with probability $\alpha^*$, otherwise leave $\tau_t$ unchanged.
+	\item Set $\tau_t \leftarrow \tau^*$ with probability $\alpha^*$, otherwise leave $\tau_t$ unchanged.
 \end{enumerate}
 
 \section{Fast MCMC - Questions/Ideas}

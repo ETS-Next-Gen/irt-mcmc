@@ -8,7 +8,7 @@
 \newcommand{\bX}{\mathbf{X}}
 \newcommand{\bY}{\mathbf{Y}}
 \newcommand{\bt}{\boldsymbol\tau}
-\newcommand{\st}{\sigma_{\ta}^2}
+\newcommand{\st}{v_{\ta}}
 \newcommand{\ta}{\theta}
 
 \begin{document}
@@ -40,16 +40,18 @@ without presumptions in the MCMC, then calculate their statistics and correlatio
 the background variables. 
 
 \subsection{Observed Data}
-A test is a set of $M \approx 200$ items. For simplicity, we assume all items are multiple-choice. $N \approx 10^5$ persons take the test. Each person $p$ answers a different subset $I_p$ of size $|I_p| \approx 40$ items (some persons may share the same subset). Person $p$'s response to item $j$ is denoted by the binary $X_{pj}$ ($X_{pj}=1$ is the answer was correct, $0$ otherwise). 
+A test is a set of $M \approx 200$ items. For simplicity, we assume all items are multiple-choice. $N \approx 10^5$ persons take the test. Each person $p$ answers a different subset $I_p$ of size $|I_p| \approx 40$ items (some persons may share the same subset). Person $p$'s response to item $j$ is denoted by the binary $X_{pj}$ ($X_{pj}=1$ is the answer was correct, $0$ otherwise).
+
+Each item measures one of $C$ sub-scales (e.g., in mathematics assessment these are algebra, geometry, etc.). In the ETS NAEP data, $C=5$. The sub-scale of item $i$ is denoted $c(i)$.
 
 Also available is a matrix $\bY \in \R^{N \times B}$ of background variables for all persons.
 
 \subsection{Unknowns}
-The test measures a latent ability $\ta \in \R^K$. In the ETS NAEP data, $K=5$. $\ta_p$ denotes the unknown ability of student $p$
+The test measures a latent ability $\ta \in \R^C$, corresponding to the $C$ sub-scales. $\ta_p=(\ta_p^1,\dots,\ta_p^C)$ denotes the unknown ability of person $p$.
 
 A person's response to item $i$ is modeled by an Item Response Function (IRF). A basic choice is a {\it three-parameter logistic model (3PL)}. The probability of a correct response is assumed to be
 \begin{equation}
-  P_i(\ta_p; \beta_i) = P[X_{pi} = 1 | \ta_p,\beta_i] = \pi_i + (1-\pi_i) \frac{e^{-a_i (\ta - b_i)}}{1 + e^{-a_i (\ta - b_j)}}\,.
+  P_i(\ta_p; \beta_i) = P[X_{pi} = 1 | \ta_p,\beta_i] = \pi_i + (1-\pi_i) \frac{e^{-a_i (\ta^{c(i)} - b_i)}}{1 + e^{-a_i (\ta^{c(i)} - b_j)}}\,.
 \end{equation}
 We fix $\pi_j \equiv 0.2$ (assuming five-choice items). The unknown item parameters $\beta_i := (a_j, b_j)$ represent the discrimination and difficulty of the item, respectively. The density for $X_{pi}$ is
 \begin{equation}
@@ -63,23 +65,23 @@ By Bayes' theorem, the posterior distribution of parameters given the responses 
   f(\bX|\bt) f(\bt) = \prod_{p=1}^N \left\{ \prod_{i \in I_p} f(X_{pi}|\ta_p,\beta_i) \right\} f_p(\ta_p|\st) f(\st)\,.
   \label{model}
 \end{equation}
-The $p$ is due to the experimental independence assumption in IRT and the product over $i$ is due to IRT’s local independence assumption. It is also typical to specify independent priors for parameters. In (\ref{model}) we assumed an informative prior only on $\ta_p$ with the hyperparameter $\st$ whose hyper-distribution is $f(\st)$. For convenience, we add $\st$ as the last entry of $\bt$, which has a total of $T := K P + 2 I + 1$ elements. The following distributions are used, and fully specify the model:
+The $p$ is due to the experimental independence assumption in IRT and the product over $i$ is due to IRT’s local independence assumption. It is also typical to specify independent priors for parameters. In (\ref{model}) we assumed an informative prior only on $\ta_p$ with the hyperparameter vector $\st$ whose hyper-distribution is $f(\st)$. For convenience, we add $\st$ as the last entry of $\bt$, which has a total of $K := C P + 2 I + C$ elements. The following distributions are used, and fully specify the model:
 \begin{eqnarray}
 	X_{pi} &\sim& {\mbox{Bernoulli}}(y_{pi})
 	\label{dist_x} \\
-	\ln \frac{y_{pi}}{y_{pi}+1} &\sim& a_i (\ta_p - b_i)
+	\ln \frac{y_{pi}}{y_{pi}+1} &\sim& a_i (\ta_{p}^{c(i)} - b_i)
 	\label{dist_y} \\
-	\ta_p &\sim& \Normal(0, \st)
+	\ta_p &\sim& \prod_{c=1}^C \Normal(0, \st^c)
 	\label{dist_ta} \\
-	\st &\sim& IG(\alpha_{\ta}, \beta_{\ta})
+	\st^c &\sim& IG(\alpha_{\ta}, \beta_{\ta})
 	\label{dist_st} \\
 	\alpha_{\ta}, \beta_{\ta} && {\mbox{pre-specified: }} \alpha_{\ta} = \beta_{\ta} = 1
 	\label{dist_ab}
 \end{eqnarray}
-for all $p=1,\dots,P$ and $i=1,\dots,I$. $IG$ denotes the inverse gamma distribution.
+for all $p=1,\dots,P$ and $i=1,\dots,I$. $IG$ denotes the inverse gamma distribution. That is, the prior is that each latent ability component $\ta^c$, $c=1,\dots,C$ is normally distributed with an unknown variance $\st^c$ and components are uncorrelated.
 
 \subsection{Target Quantities}
-One of NAEP's goals is to measure the mean of some function $g(\cdot)$ of proficiency scores $\ta$ over all individuals in some sub-population $\G$. The Nation's Report Card reports results on the composite scale, which is a weighted average of sub-scales, $g(\ta) = a^T \ta$ for some fixed $a$. The Nation's Report Card also reports the proportion of students in $\G$ whose composite score is in some pre-defined achievement range, i.e.,
+One of NAEP's goals is to measure the mean of some function $g(\cdot)$ of proficiency scores $\ta$ over all individuals in some sub-population $\G$. The Nation's Report Card reports results on the composite scale, which is a weighted average of the sub-scales, $g(\ta) = a^T \ta$ for some fixed $a$. The Nation's Report Card also reports the proportion of persons in $\G$ whose composite score is in some pre-defined achievement range, i.e.,
 \begin{equation}
 	g(\ta) = I_{(l,u)}(a^T \ta) =
   \begin{cases}
@@ -109,19 +111,19 @@ Thanks to the factorized form of (\ref{model}), it follows from (\ref{model})--(
   \Normal(\ta_p|0,\st),\forall I\,
   \label{cond_b}
   \\
-  f(\st|rest) &\propto& \prod_{p} 
-  \Normal(\ta_p|0,\st) IG(\alpha_{\ta},\beta_{\ta}) \\
-  &=& IG\left(\st|\alpha_{\ta} + \frac{P}{2}, \beta_{\ta} + \frac12 \sum_p \ta_p^2\right)\,.
+  f(\st^c|rest) &\propto& \prod_{p} 
+  \Normal(\ta_{pc}|0,\st^c) IG(\alpha_{\ta},\beta_{\ta}) \\
+  &=& IG\left(\st|\alpha_{\ta} + \frac{P}{2}, \beta_{\ta} + \frac12 \sum_p (\ta_p^c)^2\right)\,.
   \label{cond_st}
 \end{eqnarray}
-A Hastings-Metropolis step for a parameter $\tau_t$, $t=1,\dots,T$ requires a proposal distribution $q(\tau^*|\tau_t)$. Assuming symmetric $q$, the step is
+A Hastings-Metropolis step for a parameter $\tau_k$, $k=1,\dots,K$ requires a proposal distribution $q(\tau^*|\tau_k)$. Assuming symmetric $q$, the step is
 \begin{enumerate}
-	\item Generate a candidate $\tau^*$ using the probability density $q(\tau^*|\tau_t)$.
+	\item Generate a candidate $\tau^*$ using the probability density $q(\tau^*|\tau_k)$.
 	\item Calculate the acceptance probability
 	\begin{equation}
-		\alpha_* := \min\left\{1, \frac{f(\tau^*|rest)}{f(\tau_t|rest)} \right\}\,.
+		\alpha_* := \min\left\{1, \frac{f(\tau^*|rest)}{f(\tau_k|rest)} \right\}\,.
 	\end{equation}
-	\item Set $\tau_t \leftarrow \tau^*$ with probability $\alpha^*$, otherwise leave $\tau_t$ unchanged.
+	\item Set $\tau_k \leftarrow \tau^*$ with probability $\alpha^*$, otherwise leave $\tau_k$ unchanged.
 \end{enumerate}
 
 \section{Fast MCMC - Questions/Ideas}
@@ -131,7 +133,7 @@ A Hastings-Metropolis step for a parameter $\tau_t$, $t=1,\dots,T$ requires a pr
 	(so that we can estimate target quantities with a reasonably-sized sample)?
 	\item Initial guess for parameters: in general, by continuation. But one should define the coarse variables
 	to be able to continue from a coarser scale, and we don't have them yet. So, one could define the $\ta$'s
-	from the fraction of correct responses of a student on the corresponding questions (relative to the general
+	from the fraction of correct responses of a person on the corresponding questions (relative to the general
 	population average, which is defined as $\ta=0$ by our model).
 	\item Find a coarse variable set using clustering. $\ta_p$'s should probably be clustered separately. 	Possibly also $a_i$'s and $b_i$'s; or one could just coarsen all of the $\beta_i$'s.
 	\item Measure coarse variable set quality by Compatible MC (CMC)'s convergence rate. Since this should be a fast convergence for a good set, convergence of target quantities may suffice to define the convergence rate here.

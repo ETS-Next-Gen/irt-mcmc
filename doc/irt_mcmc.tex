@@ -65,13 +65,13 @@ By Bayes' theorem, the posterior distribution of parameters given the responses 
   f(\bX|\bt) f(\bt) = \prod_{p=1}^N \left\{ \prod_{i \in I_p} f(X_{pi}|\ta_p,\beta_i) \right\} f_p(\ta_p|\st) f(\st)\,.
   \label{model}
 \end{equation}
-The $p$ is due to the experimental independence assumption in IRT and the product over $i$ is due to IRT’s local independence assumption. It is also typical to specify independent priors for parameters. In (\ref{model}) we assumed an informative prior only on $\ta_p$ with the hyperparameter vector $\st$ whose hyper-distribution is $f(\st)$. For convenience, we add $\st$ as the last entry of $\bt$, which has a total of $K := C P + 2 I + C$ elements. The following distributions are used, and fully specify the model:
+The $p$ is due to the experimental independence assumption in IRT and the product over $i$ is due to IRT’s local independence assumption. It is also typical to specify independent priors for parameters. In (\ref{model}) we assumed an non-uniform prior only on $\ta_p$ with the hyperparameter vector $\st$ whose hyper-distribution is $f(\st)$. For convenience, we add $\st$ as the last entry of $\bt$, which has a total of $K := C P + 2 I + C$ elements. The following distributions are used, and fully specify the model:
 \begin{eqnarray}
 	X_{pi} &\sim& {\mbox{Bernoulli}}(y_{pi})
 	\label{dist_x} \\
 	\ln \frac{y_{pi}}{y_{pi}+1} &\sim& a_i (\ta_{p}^{c(i)} - b_i)
 	\label{dist_y} \\
-	\ta_p &\sim& \prod_{c=1}^C \Normal(0, \st^c)
+	\ta_p &\sim& \Normal(\mathbf{0}, {\mbox{diag}}\{\st^1,\dots,\st^C\}) 
 	\label{dist_ta} \\
 	\st^c &\sim& IG(\alpha_{\ta}, \beta_{\ta})
 	\label{dist_st} \\

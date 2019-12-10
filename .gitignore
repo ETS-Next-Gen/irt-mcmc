@@ -3,3 +3,6 @@
 **/*.bbl
 **/*.blg
 **/*.synctex.gz
+**/.idea
+**/.ipynb_checkpoints
+

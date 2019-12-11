@@ -71,6 +71,8 @@ The $p$ is due to the experimental independence assumption in IRT and the produc
 	\label{dist_x} \\
 	\ln \frac{y_{pi}}{y_{pi}+1} &\sim& a_i (\ta_{p}^{c(i)} - b_i)
 	\label{dist_y} \\
+	a_i & Uniform[\sim& a_i (\ta_{p}^{c(i)} - b_i)
+	\label{dist_a} \\
 	\ta_p &\sim& \Normal(\mathbf{0}, {\mbox{diag}}\{\st^1,\dots,\st^C\}) 
 	\label{dist_ta} \\
 	\st^c &\sim& IG(\alpha_{\ta}, \beta_{\ta})
@@ -101,14 +103,12 @@ Thanks to the factorized form of (\ref{model}), it follows from (\ref{model})--(
   \\
   f(a_i|rest) &\propto& \prod_{p} 
   P_i(\ta_p;a_i,b_i)^{x_{pi}} 
-  \left(1 - P_i(\ta_p;a_i,b_i)\right)^{1-x_{pi}} 
-  \Normal(\ta_p|0,\st),\forall I\,
+  \left(1 - P_i(\ta_p;a_i,b_i)\right)^{1-x_{pi}},\forall I\,
   \label{cond_a}
   \\
   f(b_i|rest) &\propto& \prod_{p} 
   P_i(\ta_p;a_i,b_i)^{x_{pi}} 
-  \left(1 - P_i(\ta_p;a_i,b_i)\right)^{1-x_{pi}} 
-  \Normal(\ta_p|0,\st),\forall I\,
+  \left(1 - P_i(\ta_p;a_i,b_i)\right)^{1-x_{pi}},\forall I\,
   \label{cond_b}
   \\
   f(\st^c|rest) &\propto& \prod_{p} 

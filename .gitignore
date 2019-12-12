@@ -2,6 +2,7 @@
 **/*.log
 **/*.bbl
 **/*.blg
+**/*.dvi
 **/*.synctex.gz
 **/.idea
 **/.ipynb_checkpoints

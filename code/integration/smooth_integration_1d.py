@@ -5,7 +5,7 @@ from scipy.integrate import fixed_quad, quadrature
 
 def theta_distribution(theta, mu, sigma):
     """Latent ability distribution."""
-    return np.exp(-(x-mu)**2 / sigma**2)
+    return np.exp(-(theta-mu)**2 / sigma**2)
 
 def irf(theta, a, b):
     """Item response function."""
@@ -13,7 +13,7 @@ def irf(theta, a, b):
     return t / (1 + t)
 
 def likelihood(theta, a, b, mu, sigma):
-    return irf(theta, a, b) * irf(theta, mu, sigma)
+    return irf(theta, a, b) * theta_distribution(theta, mu, sigma)
 
 def test_integration_error(lo, high):
     """Prints integration error of Gaussian quadratures for integrating the likelihood over [lo,high]."""
@@ -23,7 +23,7 @@ def test_integration_error(lo, high):
           "a = {}, b = {}, theta = Normal({}, {}) over [{},{}]".format(a, b, mu, sigma, lo, high))
     s, error = quadrature(likelihood, lo, high, args=(a, b, mu, sigma), tol=1e-08, rtol=1e-08, maxiter=50)
     print("Fixed-tolerance quadrature:      result = %.8f  error = %.2e" % (s, error))
-    for n in range(5, 11):
+    for n in range(5, 21):
         sn, _ = fixed_quad(likelihood, lo, high, args=(a, b, mu, sigma), n=n)
         print("Fixed-point quadrature: n = %2d   result = %.8f  error = %.2e" % (n, sn, np.abs(s - sn)))
 

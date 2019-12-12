@@ -1,0 +1,152 @@
+\documentclass{article}
+\usepackage{amsmath}
+\usepackage{amssymb}
+
+\newcommand{\Normal}{\mathcal{N}}
+\newcommand{\G}{\mathcal{G}}
+\newcommand{\R}{\mathbb{R}}
+\newcommand{\bX}{\mathbf{X}}
+\newcommand{\bY}{\mathbf{Y}}
+\newcommand{\bt}{\boldsymbol\tau}
+\newcommand{\st}{v_{\ta}}
+\newcommand{\ta}{\theta}
+
+\begin{document}
+
+\title{Non-parametric Item Response Theory: Modeling and Fast MCMC Estimation}
+\author{Oren Livne}
+\date{\today}
+
+\maketitle
+
+\begin{abstract}
+  We describe a non-parametric Item Response Theory (IRT) model that estimates both student latent
+  abilities and item response functions, without assuming a specific parametric form. We
+  describe a fast Monte-Carlo Markov Chain algorithm for estimating the parameters
+  and target quantities, e.g., ability of sub-populations. We argue that this formulation
+  can reduce over-fitting, model more general item types and lends itself to faster computation
+  compared with parametric IRT models.
+\end{abstract}
+
+\section{Introduction}
+Item response theory (IRT) (also known as latent trait theory) is a psychometric paradigm for the design, analysis, and scoring of tests, questionnaires, and similar instruments measuring abilities, attitudes, or other variables. It is a theory of testing based on the relationship between individuals' performances on a test item and the test takers' levels of performance on an overall measure of the ability that item was designed to measure.
+
+We present here a new computational model that estimates person abilities and Item Response Functions (IRFs). This falls under the category of Non-parametric IRT (NIRT): the IRF is not presumed to have a specified form,
+but instead represented numerically and found as part of the model. There is a large body of literature on
+NIRT; see \cite{sijtsma} for a survey. The presented formulation offers several advantages over other IRT approaches:
+\begin{itemize}
+	\item Individual person latent abilities are directly estimated, as opposed to first integrating over
+	the latent ability distribution to estimate item parameters first, then sampling from the posterior
+	distribution to obtain latent abilities. This not only reduces bias but also allows a much faster
+	computation: as opposed to a multi-dimensional integration, we use a Monte-Carlo Markov Chain (MCMC)
+	algorithm, which, along with a proper continuation and multilevel acceleration, has a near-linear
+	run-time and complexity in the number of persons and items.
+	\item General item types can be modeled without specifying a different IRF for each item,
+	including non-monotonic IRFs, e.g., attractive distractor  \cite{attractive_distractor}. NIRT should be applicable to
+	large carefully curated item sets (where only items with ``good'' IRFs are used after heavy calibration
+	and filtering) as well as small item sets (where IRFs may be more variable) because IRFs are determined
+	from the response data, as opposed to assuming a pre-determined shape (e.g., a two- or three-parameter
+	logistic model (2PL, 3PL) \cite{junker}) that may be approximate or wrong.
+	It can be applied when all persons response to the same set of items, or when each person responds to
+	a different subset of items (as in NAEP \cite{matt02}).
+	\item While on the surface the model has more parameters than parametric IRT, over-fitting can be 
+	reduced and controlled by adaptively binning in the IRF's numerical representation.
+\end{itemize}
+We describe the model in Section~\ref{model}. A fast MCMC algorithm for estimating the model parameters
+is presented in Section~\ref{mcmc}.
+
+\section{Model Formulation}
+\label{model}
+We assume $P$ persons take a test consisting of $I$ items. For simplicity, items are assumed to be multiple-choice, but polytomous or continuous-scored items could be supported. Person $p$'s response to item $i$ is denoted by the binary $X_{pi}$ ($X_{pi}=1$ is the answer was correct, $0$ otherwise).
+
+\subsection{Unknowns}
+Item responses are assumed to be driven by $C$ latent variables $\ta := (\ta^1,\dots,\ta^C)$ representing a person's ability. Let $\ta_p=(\ta_p^1,\dots,\ta_p^C)$ denote person $p$'s unknown ability and $\Theta = (\ta_1,\dots,\ta_P)$. We are free to choose $\ta$'s domain $\Omega$; we choose $\Omega := [-M,M]$ where $M = 5$ ($\ta^c$ may be interpreted as the number of standard deviations from the average ability in dimension $c$, $c=1,\dots,C$).
+
+A person's response to item $i$ is modeled by an Item Response Function (IRF) $P_i(\ta)$. We represent
+$P_i$ as a numerical function: the $\ta$ domain is covered by a uniform grid of with $n$ bins in each
+dimension, and $P_i$ is some interpolation from its discrete values $\{P_{ij}\}_j$ at bin centers. Here
+$j=(j^1,\dots,j^C)$, $0 \leq j^c < n$ is the bin index. We use a linear interpolation for simplicity, but
+other, smoother schemes may be substituted (e.g., B-splines, as in \cite{matt_bsplines}.
+
+The grid meshsize is denoted by $h := 2 M / n$. We explore adaptive binning in Section~\ref{adaptive_grid},
+which can save much computational work. $n$ controls the IRF resolution, and is increased during estimation:
+as $\theta$ estimates improve, we refine our IRF representation.
+
+\subsection{Likelihood}
+The density of $X_{pi}$ can be expressed as 
+\begin{equation}
+  f(x_{pi}|\ta_p) = P_i(\ta_p)^{x_{pi}} \left(1 - P_i(\ta_p)\right)^{1-x_{pi}}\,.
+\end{equation}
+We use two standard assumptions of IRT \cite{junker}: experimental independence (person responses are independent) and local independence (a person's responses to items are independent).
+By Bayes' theorem, the posterior distribution of parameters given the responses is proportional to
+\begin{equation}
+  f(\bX|\Theta) := \prod_p \prod_i f(X_{pi}|\ta_p)\,.
+  \label{like}
+\end{equation}
+
+\section{Parameter Estimation by MCMC}
+Thanks to the factorized form of (\ref{model}), it follows from (\ref{model})--(\ref{dist_ab}) that the complete conditional densities for the individual parameters are
+\begin{equation}
+  f(\ta_p|rest) \propto \prod_{i \in I_p} 
+  P_i(\ta_p;a_i,b_i)^{x_{pi}} 
+  \left(1 - P_i(\ta_p;a_i,b_i)\right)^{1-x_{pi}},\forall p\,
+  \label{cond_ta}
+\end{equation}
+A Hastings-Metropolis step for a parameter $\tau_k$, $k=1,\dots,K$ requires a proposal distribution $q(\tau^*|\tau_k)$. Assuming symmetric $q$, the step is
+\begin{enumerate}
+	\item Generate a candidate $\tau^*$ using the probability density $q(\tau^*|\tau_k)$.
+	\item Calculate the acceptance probability
+	\begin{equation}
+		\alpha_* := \min\left\{1, \frac{f(\tau^*|rest)}{f(\tau_k|rest)} \right\}\,.
+	\end{equation}
+	\item Set $\tau_k \leftarrow \tau^*$ with probability $\alpha^*$, otherwise leave $\tau_k$ unchanged.
+\end{enumerate}
+
+\subsection{Continuation}
+
+\section{Quality Measurement}
+The model described here is actually a family of models (depending on the choice of likelihood function weighting, bin refinement strategy, etc.). It is important to compare models by their prediction quality of
+person responses to a set of validation items; if a separate validation data set is not available, cross-validation can be used instead.
+
+{\bf The convergence (equilibration) of the model should also be properly defined, either in terms of target quantities below.}
+
+\section{Target Quantities}
+A typical target quantity of interest (e.g., in NAEP) is the mean of some function $g(\cdot)$ of proficiency scores $\ta$ over all individuals in some sub-population $\G$. The Nation's Report Card reports results on the composite scale, which is a weighted average of the sub-scales, $g(\ta) = a^T \ta$ for some fixed $a$. The Nation's Report Card also reports the proportion of persons in $\G$ whose composite score is in some pre-defined achievement range, i.e.,
+\begin{equation}
+	g(\ta) = I_{(l,u)}(a^T \ta) =
+  \begin{cases}
+    1, & a^T \ta \in (l,u), \\
+    0, & a^T \ta \not \in (l,u)\,.
+  \end{cases}
+\end{equation}
+
+\section{Fast MCMC}
+\begin{itemize}
+	\item How to measure convergence, i.e., equilibration = convergence to the stationary distribution? 
+	\item How to efficiently generate independent configurations from the stationary distribution once we converged
+	(so that we can estimate target quantities with a reasonably-sized sample)?
+	\item Initial guess for parameters: in general, by continuation. But one should define the coarse variables
+	to be able to continue from a coarser scale, and we don't have them yet. So, one could define the $\ta$'s
+	from the fraction of correct responses of a person on the corresponding questions (relative to the general
+	population average, which is defined as $\ta=0$ by our model).
+	\item Find a coarse variable set using clustering. $\ta_p$'s should probably be clustered separately. 	Possibly also $a_i$'s and $b_i$'s; or one could just coarsen all of the $\beta_i$'s.
+	\item Measure coarse variable set quality by Compatible MC (CMC)'s convergence rate. Since this should be a fast convergence for a good set, convergence of target quantities may suffice to define the convergence rate here.
+\end{itemize}
+
+\section{Generalizations}
+
+\subsection{Adaptive Binning}
+\label{adaptive_grid}
+
+\subsection{Item Types}
+For simplicity, items were assumed to be multiple-choice.
+\begin{itemize}
+	\item Polytomous: multiple $P_i$'s - one for each response value.
+	\item Continuous-scored items: {\bf is that a real-world scenario, and if it is, need to describe $P_i(\theta|X)$
+	using appropriate grids (tables), adaptive according to which $X$ values are more probable?}
+\end{itemize}
+
+\bibliographystyle{alpha}
+\bibliography{irt_mcmc}
+
+\end{document}

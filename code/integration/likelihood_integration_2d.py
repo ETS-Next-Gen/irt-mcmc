@@ -10,8 +10,6 @@ item ordering, as all items are assumed to have th same discrimination a and dif
 
 p is a Gaussian with mean mu=0 and stddev sigma=1.
 """
-from itertools import product
-
 import matplotlib.pyplot as plt
 import numpy as np
 from numpy.polynomial.hermite import hermgauss
@@ -183,12 +181,13 @@ def probability_t2_gt_t1_table(a: float, b: float, n: int) -> np.ndarray:
 
 def test_probability_t2_gt_t1_is_sane():
     """Creates a table of P(t2>=t1) values vs. k1, k2 for 10 items. Verifies that 0 <= P <= 1, P(k,k) = 0.5,
-    P(k2,k1) = 1 - P(k1,k2).
+    P(k2,k1) = 1 - P(k1,k2). P should be increasing with k1 for fixed k2.
     """
     P = probability_t2_gt_t1_table(1, 0, 10)
     assert np.all(P >= 0)
     assert np.all(P <= 1)
     assert np.allclose(P, 1 - P.transpose())
+    assert np.all(np.diff(p, axis=1) >= 0)
 
 
 if __name__ == "__main__":

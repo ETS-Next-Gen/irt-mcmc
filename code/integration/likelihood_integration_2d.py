@@ -42,7 +42,7 @@ def likelihood(theta: float, a: float, b: float, k: int, n: int) -> float:
     :return: likelihood of getting k correct responses out of n given the ability theta given a Rasch
     item response function (irf()) and a normal latent ability prior distribution.
     """
-    return irf(theta, a, b, k, n) * np.exp(-theta ** 2)
+    return irf(theta, a, b, k, n) * np.exp(-theta ** 2 / 2)
 
 
 class LikelihoodIntegrator:
@@ -129,7 +129,12 @@ class DynamicProgrammingLikelihoodIntegrator(LikelihoodIntegrator):
 
     def t2_gt_t1_integral(self, a: float, b: float, k1: int, n1: int, k2: int, n2: int, num_points=10) -> float:
         # Generate nodes for t1 integration, which is Gauss-Hermite since it's f(t1) * exp(-t1^2) over [-inf,inf].
+
         node, weight = hermgauss(num_points)
+        # The normal distribution is proportional to exp(-theta2^2/2); change variables z = theta2/sqrt(2)
+        # to get the form int f(z) exp(-z^2) dz used by Gauss-Hermite.
+        scale = np.sqrt(2)
+        node *= scale
         # For each t1, we calculate the integral over [t1, high] where high is slightly larger than the last t1 node.
         high = node[-1] + 1
         if self.use_dynamic_programming:
@@ -147,16 +152,17 @@ class DynamicProgrammingLikelihoodIntegrator(LikelihoodIntegrator):
             integral_from_t1_to_inf = [fixed_quad(likelihood, x, high, args=(a, b, k2, n2), n=num_points)[0] for x in node]
 
         values = [irf(theta, a, b, k1, n1) * f for theta, f in zip(node, integral_from_t1_to_inf)]
-        return sum(values * weight)
+        return sum(values * weight) * scale / (2 * np.pi)
 
     def marginal_integral(self, a: float, b: float, k1: int, n1: int, k2: int, n2: int, num_points=10) -> float:
         # Generate nodes for t1 integration, which is Gauss-Hermite since it's f(t1) * exp(-t1^2) over [-inf,inf].
         node, weight = hermgauss(num_points)
+        node *= np.sqrt(2)
         t1_values = [irf(theta, a, b, k1, n1) for theta in node]
         t1_integral = sum(t1_values * weight)
         t2_values = [irf(theta, a, b, k2, n2) for theta in node]
         t2_integral = sum(t2_values * weight)
-        return t1_integral * t2_integral
+        return t1_integral * t2_integral / np.pi
 
 
 class NaiveLikelihoodIntegrator(LikelihoodIntegrator):
@@ -167,23 +173,24 @@ class NaiveLikelihoodIntegrator(LikelihoodIntegrator):
     def t2_gt_t1_integral(self, a: float, b: float, k1: int, n1: int, k2: int, n2: int, num_points=10) -> float:
         # Generate nodes for t1 integration, which is Gauss-Hermite since it's f(t1) * exp(-t1^2) over [-inf,inf].
         M = 8
-        # node, weight = leggauss(num_points)
-        # weight *= M
-        # node *= M
         node, weight = hermgauss(num_points)
+        # The normal distribution is proportional to exp(-theta2^2/2); change variables z = theta2/sqrt(2)
+        # to get the form int f(z) exp(-z^2) dz used by Gauss-Hermite.
+        scale = np.sqrt(2)
+        node *= scale
         # For each t1, we calculate the integral over [t1, high] where high is slightly larger than the last t1 node.
         high = max(M, node[-1] + 1)
         integral_from_t1_to_inf = [quadrature(likelihood, theta1, high, args=(a, b, k2, n2), tol=1e-12, rtol=1e-12, maxiter=100)[0]
                                    for theta1 in node]
         values = [irf(theta, a, b, k1, n1) * f for theta, f in zip(node, integral_from_t1_to_inf)]
-        return sum(values * weight)
+        return sum(values * weight) * scale / (2 * np.pi)
 
     def marginal_integral(self, a: float, b: float, k1: int, n1: int, k2: int, n2: int, num_points=10) -> float:
         # Generate nodes for t1 integration, which is Gauss-Hermite since it's f(t1) * exp(-t1^2) over [-inf,inf].
         M = 8
         t1_integral = quadrature(likelihood, -M, M, args=(a, b, k1, n1), tol=1e-12, rtol=1e-12, maxiter=100)[0]
         t2_integral = quadrature(likelihood, -M, M, args=(a, b, k2, n2), tol=1e-12, rtol=1e-12, maxiter=100)[0]
-        return t1_integral * t2_integral
+        return t1_integral * t2_integral / (2 * np.pi)
 
 
 def create_likelihood_integrator(algorithm, use_dynamic_programming=False):
@@ -244,9 +251,9 @@ def test_probability_t2_gt_t1_is_sane(integrator):
 if __name__ == "__main__":
     a, b = 1, 0  # Item parameters.
 
-    #integrator = create_likelihood_integrator("dp", use_dynamic_programming=True)
+    integrator = create_likelihood_integrator("dp", use_dynamic_programming=True)
     #integrator = create_likelihood_integrator("dp", use_dynamic_programming=False)
-    integrator = create_likelihood_integrator("naive")
+    #integrator = create_likelihood_integrator("naive")
 
     # Print and plot a table of P(t2>=t1) values vs. k1, k2 for 10 items.
     n = 10
@@ -266,5 +273,5 @@ if __name__ == "__main__":
     plt.xlabel("$k_2$ (#correct items of student 2)")
     plt.ylabel("$P[\\theta_2 \geq \\theta_1|y_1=k_1/n, y_2=k_2/n]$")
     plt.title("Probability of $\\theta_2 \geq \\theta_1$ for $n = %d$ items" % n)
-    plt.show()
+    #plt.show()
     plt.savefig("prob_t2_gt_g1.png")

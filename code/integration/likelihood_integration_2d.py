@@ -13,6 +13,7 @@ p is a Gaussian with mean mu=0 and stddev sigma=1.
 import matplotlib.pyplot as plt
 import numpy as np
 from numpy.polynomial.hermite import hermgauss
+#from numpy.polynomial.legendre import leggauss
 from scipy.integrate import fixed_quad, quadrature
 
 
@@ -165,9 +166,13 @@ class NaiveLikelihoodIntegrator(LikelihoodIntegrator):
 
     def t2_gt_t1_integral(self, a: float, b: float, k1: int, n1: int, k2: int, n2: int, num_points=10) -> float:
         # Generate nodes for t1 integration, which is Gauss-Hermite since it's f(t1) * exp(-t1^2) over [-inf,inf].
+        M = 8
+        # node, weight = leggauss(num_points)
+        # weight *= M
+        # node *= M
         node, weight = hermgauss(num_points)
         # For each t1, we calculate the integral over [t1, high] where high is slightly larger than the last t1 node.
-        high = max(8, node[-1] + 1)
+        high = max(M, node[-1] + 1)
         integral_from_t1_to_inf = [quadrature(likelihood, theta1, high, args=(a, b, k2, n2), tol=1e-12, rtol=1e-12, maxiter=100)[0]
                                    for theta1 in node]
         values = [irf(theta, a, b, k1, n1) * f for theta, f in zip(node, integral_from_t1_to_inf)]

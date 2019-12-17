@@ -5,6 +5,8 @@
 \usepackage{algorithm}
 \usepackage{algorithmic}
 
+\newcommand{\cC}{\mathcal{C}}
+\newcommand{\cG}{\mathcal{G}}
 \newcommand{\Normal}{\mathcal{N}}
 \newcommand{\G}{\mathcal{G}}
 \newcommand{\R}{\mathbb{R}}
@@ -61,11 +63,11 @@ We assume $P$ persons take a test consisting of $I$ items. For simplicity, items
 \subsection{Unknowns}
 Item responses are assumed to be driven by $C$ latent variables $\ta := (\ta_1,\dots,\ta_C)$ representing a person's ability. Let $\ta_p=(\ta_p^1,\dots,\ta_p^C)$ denote person $p$'s unknown ability and $\bta = (\ta_1,\dots,\ta_P)$. We are free to choose $\ta$'s domain $\Omega$; we choose $\Omega := [-M,M]^C$ with a large enough $M$, say, $M = 5$ ($\ta_{i,c}$ may be interpreted as the number of standard deviations away person $i$'s ability is from the average ability in dimension $c$, $c=1,\dots,C$).
 
-A person's response to item $i$ is modeled by an Item Response Function (IRF) $P_i(\ta;\beta_i)$, where $\beta_i$ is a vector of item parameters. We represent $P_i$ as a numerical function: the $\ta$ domain is covered by a uniform grid of with $n$ bins in each dimension and meshsize is by $h := 2 M / n$. Let $j=(j_1,\dots,j_C)$, $1 \leq j_c \leq n$ be the bin index, $\left\{\xi_j \right\}_j$ be the bin centers, i.e., $\xi_{jc} = -M + (j_c - \frac12) h$. Let $\left\{\phi_j\right\}_j$ denote all grid points, that is,$\phi_{jc} = -M + j_c h$, $0 \leq j_c \leq n$.
+A person's response to item $i$ is modeled by an Item Response Function (IRF) $P_i(\ta;\beta_i)$, where $\beta_i$ is a vector of item parameters. We represent $P_i$ as a numerical function: the $\ta$ domain is covered by a uniform grid of with $n$ bins in each dimension and meshsize $h = 2 M / n$. Let $j=(j_1,\dots,j_C)$, $1 \leq j_c \leq n$ be the bin index, $\left\{\xi_j \right\}_j$ be the bin centers, i.e., $\xi_{jc} = -M + (j_c - \frac12) h$. Let $\left\{\varphi_j\right\}_j$ denote all grid points, that is,$\varphi_{jc} = -M + j_c h$, $0 \leq j_c \leq n$.
 
 For simplicity, we define $P_i$ as a linear interpolation from its discrete values $\beta_i := \{P_{ij} := P_i(\xi_j)\}_j$ at bin centers. Other, smoother schemes may be substituted (e.g., B-splines, as in \cite{matt_bsplines}).
 
-Thus the unknown model parameters are $\bta$ and $\bbeta := (\beta_1,\dots,\beta_I)$. $n$controls the IRF resolution, and is treated as a hyperparameter that is increased during estimation: as $\ta$ estimates improve, we refine our IRF representation.
+Thus the unknown model parameters are $\bta$ and $\bbeta := (\beta_1,\dots,\beta_I)$. $n$ controls the IRF resolution, and is treated as a hyperparameter that is increased during estimation: as the $\bta$ estimate improve, we refine our IRF representation.
 
 A non-uniform grid may be used instead: we explore adaptive binning in Section~\ref{adaptive_grid}, which can save much computational work. 
 
@@ -81,24 +83,23 @@ We used here two standard assumptions of IRT \cite{junker}: experimental indepen
 \end{equation}
 
 \section{Parameter Estimation Algorithm}
-An iterative algorithm for any nonlinear optimization problem requires a good initial guess. The basic idea is to obtain the initial guess by continuation: solve a problem with a low IRF resolution and a small number of persons first, then gradually increase the resolution and number of people until the original problem is obtained. The continuation path is parameterized by $n$ (IRF resolution) and $T$ (simulated annealing temperature controlling the size of Monte-Carlo steps). Let $s=1,\dots,S$ denote the continuation step number.
+An iterative algorithm for any nonlinear optimization problem requires a good initial guess. The basic idea is to obtain the initial guess by continuation: solve a problem with a low IRF resolution and a small number of persons first, then gradually increase the resolution and number of people until the original problem is obtained. The continuation path is parameterized by $n$ (IRF resolution) and $T$ (simulated annealing temperature controlling the size of Monte-Carlo steps). $s=1,\dots,S$ denote the continuation step number.
 
-Instead of creating samples of persons of various sizes for different continuation steps, which may not represent the ability distribution, prior to the continuation we create a hierarchical clustering of persons (Sec.~\ref{miniclustering}). Clusters contain persons with similar response pattern. Each clustering level conveniently corresponds to a continuation step. See Algorithm~\ref{continuation}.
+Instead of creating samples of persons of various sizes for different continuation steps, which may not represent the ability distribution, prior to the continuation we create a hierarchical clustering of persons (Sec.~\ref{miniclustering}). Groups contain persons with similar response pattern. Each clustering level conveniently corresponds to a continuation step. See Algorithm~\ref{continuation}.
 
 \begin{algorithm}
 	\label{continuation}
-	\caption{$\bta, bbeta = {\mbox{Continuation-MCMC}}(X; T_{init}, T_{decrease}, \nu)$
-(estimate model parameters from responses.)}
+	\caption[]{$(\bta, \bbeta) = {\mbox{Continuation-MCMC}}(X; T_{init}, T_{decrease}, \nu)$\\\hspace{\textwidth}Estimate model parameters from responses.}
 	\begin{algorithmic}
-    \STATE Hierarchically cluster persons: $\left\{G_s\right\}_{s=1}^S \lla Cluster(X)$ (Sec~\ref{miniclustering}).
+    \STATE Hierarchically cluster persons: $\left\{\cG^s\right\}_{s=1}^S \lla Cluster(X)$ (Sec~\ref{miniclustering}).
     \STATE Coarsen $X$ to $X^1,\dots,X^S$ by (\ref{x_averaging}).
     \STATE $s \lla 1, T \lla T_{init}, n \lla 4$.
     \STATE $\bta^s \lla$ initial guess by item clustering at level $C_s$. (Sec.\ref{initial_guess}).
-    \STATE $\bta^s, \bbeta^s = {\mbox{Estimate-MCMC}}(X^s, n, T, \nu, \bta^s)$.
+    \STATE $(\bta^s, \bbeta^s) = {\mbox{Estimate-MCMC}}(X^s, n, T, \nu, \bta^s)$.
     \FOR{$s = 2,\dots,S$}
     	\STATE $n \lla 2 n, T \lla T / T_{decrease}$.
     	\STATE Interpolate $\bta^s \lla I_{s-1}^s \bta^{s-1}$ (Sec.~\ref{interpolate}). 
-	    \STATE $\bta^s, \bbeta^s = {\mbox{Estimate-MCMC}}(X^s, n, T, \nu, \bta^s)$.
+	    \STATE $(\bta^s, \bbeta^s) = {\mbox{Estimate-MCMC}}(X^s, n, T, \nu, \bta^s)$.
    	\ENDFOR
    	\STATE $\bta \lla \bta^S, \bbeta \lla \bbeta^S$.
 	\end{algorithmic}
@@ -106,23 +107,36 @@ Instead of creating samples of persons of various sizes for different continuati
 
 \subsection{Person Clustering}
 \label{miniclustering}
-First, we build a hierarchical clustering of persons based on their responses using the method described in \cite{miniclustering}. Each person corresponds to an $I$-dimensional point $X_p = (X_{p1},\dots,X_{pI})$. The top level in the hierarchy consists of a single cluster containing all points. Each clustering level is obtained from the parent level by (1) sub-dividing each parent cluster into $b$ child clusters using k-means within the cluster; and (2) improving all child centers by global k-means, where each point is reassigned to the closest of its $r \approx 5$ nearest centers. This requires maintaining at every level approximate neighboring center lists of each point and each center, which are conveniently and derived from the parent level's neighbor lists (for a child center, we use the nearest $r$ centers within its parent's child centers and the parent's neighbors' child centers; similarly for a point). The entire process requires $O(r I P \log P)$ time and $O(r I P)$ storage.
+First, we build a hierarchical clustering of persons based on their responses following the method described in \cite{miniclustering}. Each person corresponds to an $I$-dimensional point $X_p = (X_{p1},\dots,X_{pI})$. The hierarchy consists of levels $\left\{\cG^s\right\}_{s=1}^S$ where each level is a set of person groups $\cG_s := \left\{G_l\right\}_{l=1}^{g^s}$.
+
+$G^1$ consists of $g^1 = 2C$ groups, and is obtained by k-means (as opposed to a single group in \cite{miniclustering}; we need at least $C$ groups to generate the initial guess; see Sec.~\ref{initial_guess}). Each $G^s$, $s=2,\dots,S$ is obtained from the parent level $G^{s-1}$ by (1) sub-dividing each parent group into $b$ child groups using k-means within the group; and (2) improving all child centers by global k-means, where each point is reassigned to the closest of its $r \approx 5$ nearest centers. This requires maintaining at every level approximate neighboring center lists of each point and each center, which are conveniently and derived from the parent level's neighbor lists (for a child center, we use the nearest $r$ centers within its parent's child centers and the parent's neighbors' child centers; similarly for a point). The entire process requires $O(r I P \log P)$ time and $O(r I P)$ storage.
+
+A response matrix can be calculated for each clustering level by averaging the scores of persons in each group: $X^S := X$, and for each $s = S-1,S-2,\dots,1$,
+\begin{equation}
+	X^{s-1}_{l,c} = \frac{\sum_{m \in \cC^{s-1}_l} |G^{s-1}_m| X^{s-1}_{m,c}}{|G^s_c|}\,,
+	\quad l=1,\dots,g^s\,,\quad c = 1,\dots,C\,,
+\end{equation}
+where $\cC^{s-1}_l$ is the set of level-$s$ child groups of 
+
+\subsection{Initial Guess}
+\label{initial_guess}
+At the coarsest level, we cluster items to $C$ clusters $\left\{T_c\right\}_{c=1}^C$ using k-means. Each item $i$ corresponds to the point $(X^1_{1,i},\dots,X^1_{g^1,i})$. Since $g^1$ is sufficiently larger than $C$, we have enough information for a meaningful clustering. For each $c=1,\dots,C$,we set
+\begin{equation}
+	\ta^1_{pc} = \frac{\sum
+	}{|T_c}
+	
+	
+	\sum_{ \in \cC^{s-1}_l} |G^{s-1}_m| X^{s-1}_{m,c}}{|G^s_c|}\,,
+	\quad l=1,\dots,g^s\,,\quad c = 1,\dots,C\,,
+
+\end{equation}
 
 \subsection{MCMC at a Given Resolution}
-Given an IRF bin resolution $n$ and an initial guess for $\bta$, we calculate the IRF bin values as a histogram:
-\begin{equation}
-	\label{histogram_const}
-	P_{ij} = \frac{\sum_{p \in A_j} X_{pi}}{|A_j|}\,,\qquad
-	A_j := \left\{ p : \phi_{j-1} \leq \ta_p \leq \phi_j \right\}\,.
-\end{equation}
-Here $\ta \leq \phi$ for vectors $\ta,\phi \in \R^C$ is defined as elementwise $\leq$, and $j-1 = (j_1-1,\dots,j_C-1)$.
+In this section we assume $n$ and $T$ are fixed, and omit the $s$-superscripts from all quantities. Given the initial guess for $\bta$, we alternate between updating the IRF and $\nu$ MCMC sweeps to update $\bta$, where each sweep updates $\ta_p$ using Metropolis-Hastings steps, $p=1,\dots,P$ (Sec.~\ref{metropolis}). This is repeated until the Markov Chain converges to the stationary distribution $f(\bta,\bbeta|X)$.
 
-More generally, one can replace (\ref{histogram_const}) by a smoother distribution scheme, where each person contributes a term $w X_{pi}$ to the numerator and $w$ to the denominator of its own bin as well as several neighboring bins $j'$ based on the distance $\theta_p - \xi_{j'}$ (the transpose operation of a linear or higher-order polynomial interpolation). This may be considered when $P_i$'s representation is smoother.
-
-each iteration updates $\bbeta$ by counting the successful responses of the persons in each bin (Sec.~\ref{histogram}), followed by $\nu$ MCMC sweeps to update $\bta$, where each sweep updates $\ta_p$ using Metropolis-Hastings steps, $p=1,\dots,P$ (Sec.~\ref{metropolis}).
 \begin{algorithm}
-\caption{$\bta, bbeta = {\mbox{Estimate-MCMC}}(n, T, nu, \bta_{init}$)
-(estimate model parameters given continuation hyperparameters.)}
+\caption[]{$(\bta, \bbeta) = {\mbox{Estimate-MCMC}}(n, T, \nu, \bta_{init}$\\\hspace{\textwidth}
+Estimate model parameters given continuation hyperparameters.}
 \label{mcmc}
 \begin{algorithmic}
     \STATE Set $\bta \lla \bta_{init}$.
@@ -137,33 +151,43 @@ each iteration updates $\bbeta$ by counting the successful responses of the pers
 \end{algorithmic}
 \end{algorithm}
 
-\subsection{Updating the IRF: Histogram}
+\subsubsection{Updating the IRF: Histogram}
 \label{histogram}
+Given an IRF bin resolution $n$ and an initial guess for $\bta$, we calculate the IRF bin values as a histogram:
+\begin{equation}
+	\label{histogram_const}
+	P_{ij} = \frac{\sum_{p \in A_j} X_{pi}}{|A_j|}\,,\qquad
+	A_j := \left\{ p : \varphi_{j-1} \leq \ta_p < \varphi_j \right\}\,.
+\end{equation}
+Here $\ta \leq \varphi$ for vectors $\ta,\varphi \in \R^C$ is defined as elementwise $\leq$, and $j-1 = (j_1-1,\dots,j_C-1)$.
+More generally, one can replace (\ref{histogram_const}) by a smoother distribution scheme, where each person contributes a term $w X_{pi}$ to the numerator and $w$ to the denominator of its own bin as well as several neighboring bins $j'$ based on the distance $\theta_p - \xi_{j'}$ (the transpose operation of a linear or higher-order polynomial interpolation). This may be considered when $P_i$'s representation is smoother.
 
 \subsection{Updating $\bta$: Monte-Carlo Steps}
 \label{metropolis}
-A Hastings-Metropolis step for a parameter $\tau_k$, $k=1,\dots,K$ requires a proposal distribution $q(\tau^*|\tau_k)$. Here we 
-
-Assuming symmetric $q$, the step is
-\begin{enumerate}
-	\item Generate a candidate $\tau^*$ using the probability density $q(\tau^*|\tau_k)$.
-	\item Calculate the acceptance probability
-	\begin{equation}
-		\alpha_* := \min\left\{1, \frac{f(\tau^*|rest)}{f(\tau_k|rest)} \right\}\,.
-	\end{equation}
-	\item Set $\tau_k \leftarrow \tau^*$ with probability $\alpha^*$, otherwise leave $\tau_k$ unchanged.
-\end{enumerate}
-
-Thanks to the factorized form of (\ref{model}) the complete conditional densities for the individual parameters are
+From (\ref{model}) it follows that the complete conditional density of $\ta_p$ is
 \begin{equation}
   f(\ta_p|rest) \propto \prod_i 
-  P_i(\ta_p;\beta_i)^{x_{pi}}\left(1 - P_i(\ta_p;\beta_i)\right)^{1-x_{pi}},\forall p\,.
+  P_i(\ta_p;\beta_i)^{x_{pi}}\left(1 - P_i(\ta_p;\beta_i)\right)^{1-x_{pi}}\,.
   \label{cond_ta}
 \end{equation}
+A Hastings-Metropolis step for $\ta_p$ requires a proposal distribution $q(\ta_*|\ta_p)$. We assume a symmetric $q$, 
 
 
 
-\subsection{Continuation}
+therefore the step is
+\begin{enumerate}
+	\item Generate a candidate $\ta_*$ using the probability density $q(\ta_*|\ta_p)$.
+	\item Calculate the acceptance probability
+	\begin{equation}
+		\alpha_* := \min\left\{1, \frac{f(\ta_*|rest)}{f(\ta_p|rest)} \right\}\,.
+	\end{equation}
+	\item Set $\ta_p \leftarrow \ta_*$ with probability $\alpha^*$, otherwise leave $\ta_p$ unchanged.
+\end{enumerate}
+
+
+\subsubsection{Stopping Resolution}
+
+\subsection{Continuation Policy}
 $n$, $T$. As $n$ is coarsened (nested iteration), we cluster persons into aggregates of similar
 response patterns. Either biclustering person-item or clustering the persons in item space.
 
@@ -177,7 +201,7 @@ person responses to a set of validation items; if a separate validation data set
 
 {\bf The convergence (equilibration) of the model should also be properly defined, either in terms of target quantities below.}
 
-\subsection{Target Quantities}
+\subsubsection{Target Quantities}
 A typical target quantity of interest (e.g., in NAEP) is the mean of some function $g(\cdot)$ of proficiency scores $\ta$ over all individuals in some sub-population $\G$. The Nation's Report Card reports results on the composite scale, which is a weighted average of the sub-scales, $g(\ta) = a^T \ta$ for some fixed $a$. The Nation's Report Card also reports the proportion of persons in $\G$ whose composite score is in some pre-defined achievement range, i.e.,
 \begin{equation}
 	g(\ta) = I_{(l,u)}(a^T \ta) =

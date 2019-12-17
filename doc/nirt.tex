@@ -1,6 +1,9 @@
 \documentclass{article}
 \usepackage{amsmath}
 \usepackage{amssymb}
+\usepackage{authblk}
+\usepackage{algorithm}
+\usepackage{algorithmic}
 
 \newcommand{\Normal}{\mathcal{N}}
 \newcommand{\G}{\mathcal{G}}
@@ -10,89 +13,138 @@
 \newcommand{\bt}{\boldsymbol\tau}
 \newcommand{\st}{v_{\ta}}
 \newcommand{\ta}{\theta}
-
-\begin{document}
+\newcommand{\bbeta}{\boldsymbol\beta}
+\newcommand{\bta}{\boldsymbol\ta}
+\newcommand{\lla}{\longleftarrow}
 
 \title{Non-parametric Item Response Theory: Modeling and Fast MCMC Estimation}
-\author{Oren Livne}
+
+\author[1]{Oren Livne}
+\author[2]{Achi Brandt}
+\affil[1]{Educational Testing Service, Attn: MS-12, T-197, 660 Rosedale Road, Princeton, NJ 08540. Email: olivne@ets.org}
+\affil[2]{Faculty of Mathematics and Computer Science, The Weizmann Institute of Science, 234 Herzl Street, Rehovot 7610001 Israel. Email: achi.brandt@weizmann.ac.il}
 \date{\today}
 
+\begin{document}
 \maketitle
 
 \begin{abstract}
-  We describe a non-parametric Item Response Theory (IRT) model that estimates both student latent
-  abilities and item response functions, without assuming a specific parametric form. We
-  describe a fast Monte-Carlo Markov Chain algorithm for estimating the parameters
-  and target quantities, e.g., ability of sub-populations. We argue that this formulation
-  can reduce over-fitting, model more general item types and lends itself to faster computation
-  compared with parametric IRT models.
+We describe a non-parametric Item Response Theory (IRT) model that estimates both student latent abilities and item response functions, without assuming a specific parametric form or prior distributions. We describe a fast multilevel Monte-Carlo Markov Chain algorithm for estimating the model parameters. Multileveling is used to both speed up MCMC equilibration and define a continuation process that gradually refines the item response function resolution, along with simulated annealing controlling Monte-Carlo updates of latent ability variables. We argue that this formulation can reduce over-fitting, model more general item types and lends itself to faster computation compared with parametric IRT models.
 \end{abstract}
 
 \section{Introduction}
-Item response theory (IRT) (also known as latent trait theory) is a psychometric paradigm for the design, analysis, and scoring of tests, questionnaires, and similar instruments measuring abilities, attitudes, or other variables. It is a theory of testing based on the relationship between individuals' performances on a test item and the test takers' levels of performance on an overall measure of the ability that item was designed to measure.
+Item response theory (IRT) (also known as latent trait theory) is a psychometric paradigm for the design, analysis, and scoring of tests, questionnaires, and similar instruments measuring abilities, attitudes, or other variables. It is a theory of testing based on the relationship between individuals' performances on a test item and the test takers' levels of performance on an overall measure of the ability that item was designed to measure. We consider two challenges: (a) formulating an IRT model that uses minimal assumptions to reduce bias in estimating student abilities and item difficulty; (b) developing a fast numerical solution for estimating the model parameters.
 
-We present here a new computational model that estimates person abilities and Item Response Functions (IRFs). This falls under the category of Non-parametric IRT (NIRT): the IRF is not presumed to have a specified form,
-but instead represented numerically and found as part of the model. There is a large body of literature on
-NIRT; see \cite{sijtsma} for a survey. The presented formulation offers several advantages over other IRT approaches:
+First, we present a new computational model that estimates person abilities and Item Response Functions (IRFs). This falls under the category of Non-parametric IRT (NIRT): the IRF is not presumed to have a specified form, but instead represented as numerical functions and found as part of the model. There is a large body of literature on NIRT; see \cite{sijtsma} for a survey. The presented formulation offers several modeling advantages over other IRT approaches:
 \begin{itemize}
-	\item Individual person latent abilities are directly estimated, as opposed to first integrating over
-	the latent ability distribution to estimate item parameters first, then sampling from the posterior
-	distribution to obtain latent abilities. This not only reduces bias but also allows a much faster
-	computation: as opposed to a multi-dimensional integration, we use a Monte-Carlo Markov Chain (MCMC)
-	algorithm, which, along with a proper continuation and multilevel acceleration, has a near-linear
-	run-time and complexity in the number of persons and items.
+	\item Individual person latent abilities are directly estimated using a Monte-Carlo 
+	Markov Chain (MCMC) simulation, as opposed to first integrating over the latent ability distribution to estimate item parameters first, then sampling from the posterior distribution to obtain latent abilities. This reduces bias
 	\item General item types can be modeled without specifying a different IRF for each item,
-	including non-monotonic IRFs, e.g., attractive distractor  \cite{attractive_distractor}. NIRT should be applicable to
-	large carefully curated item sets (where only items with ``good'' IRFs are used after heavy calibration
-	and filtering) as well as small item sets (where IRFs may be more variable) because IRFs are determined
-	from the response data, as opposed to assuming a pre-determined shape (e.g., a two- or three-parameter
-	logistic model (2PL, 3PL) \cite{junker}) that may be approximate or wrong.
-	It can be applied when all persons response to the same set of items, or when each person responds to
-	a different subset of items (as in NAEP \cite{matt02}).
-	\item While on the surface the model has more parameters than parametric IRT, over-fitting can be 
-	reduced and controlled by adaptively binning in the IRF's numerical representation.
+	including non-monotonic IRFs, e.g., attractive distractor \cite{attractive_distractor}. NIRT should be applicable to large carefully curated item sets (where only items with ``good'' IRFs are used after heavy calibration and filtering) as well as small item sets (where IRFs may be more variable) because IRFs are determined from the response data, as opposed to assuming a pre-determined shape (e.g., a two- or three-parameter logistic model (2PL, 3PL) \cite{junker}) that may be approximate or wrong. It can be applied when all persons response to the same set of items, or when each person responds to a different subset of items (as in NAEP \cite{matt02}).
+	\item While on the surface the model has more parameters than parametric IRT, over-fitting can be reduced and controlled by adaptively binning in the IRF's numerical representation.
 \end{itemize}
-We describe the model in Section~\ref{model}. A fast MCMC algorithm for estimating the model parameters
-is presented in Section~\ref{mcmc}.
+
+Secondly, we develop a fast multilevel MCMC algorithm for estimating the model parameters. The MCMC formulation lends itself to a much faster computation than models that estimate item parameters by integrating out the latent ability dimension. These use a Newton-Raphson \cite{haberman} or Expectation-Maximization to maximize the likelihood function. Many steps are typically required to converge to a local maximum (not guaranteed to be near the global maximum), since these search methods visit many states that are far from the solution before honing in the correct its basin of attraction, and/or require step damping to maintain stability. Furthermore, each step requires a costly evaluation of a multi-dimensional integral.
+
+In contrast, we run MCMC with a {\it continuation method}: we start from a coarse resolution of the IRF function, and estimate its parameters along with the latent abilities of large groups of students using MCMC. We then gradually increase the IRF resolution while refining student groups into smaller groups; the solution to the model at a certain resolution serves as the initial guess to the next-higher resolution model. In this way we confine the search to the relevant part of the parameter space.
+
+Monte-Carlo (MC) process is called {\it statistically optimal} if it attains accuracy $\varepsilon$ in a target quantity (e.g., the mean latent ability of sub-populations of interest) in $O(\sigma_2 \varepsilon^{-2})$ samples, where $\sigma$ is the standard deviation of the target quantity. This is the theoretical lower bound, as this is the complexity of calculating any simple average by statistical sampling, e.g., the frequency of heads in coin tossing, and we therefore set it as our goal. However, MC often encounters critical slowing down (CSD): the number passes needed to produce a new (independent) sample increases, typically as a power of the number of parameters. To mitigate that, we develop a {\it multilevel MC} algorithm: in addition to updating individual parameters, it also applied collective updates to groups of correlated parameters. By updating groups of various scales, CSD is avoided and the algorithm is statistically optimal, with a linear run-time complexity in the number of persons and items. 
+
+The multilevel methodology offers other benefits (e.g., supporting adaptive grids in the IRF representation, Sec.~\ref{adaptive_grid}) and could be used to speed up other MCMC models beyond IRT.
+
+We describe the model in Section~\ref{model}. The multilevel MCMC algorithm for estimating model parameters is presented in Section~\ref{mcmc}. Generalizations are discussed in Sec.~\ref{general}.
 
 \section{Model Formulation}
 \label{model}
 We assume $P$ persons take a test consisting of $I$ items. For simplicity, items are assumed to be multiple-choice, but polytomous or continuous-scored items could be supported. Person $p$'s response to item $i$ is denoted by the binary $X_{pi}$ ($X_{pi}=1$ is the answer was correct, $0$ otherwise).
 
 \subsection{Unknowns}
-Item responses are assumed to be driven by $C$ latent variables $\ta := (\ta^1,\dots,\ta^C)$ representing a person's ability. Let $\ta_p=(\ta_p^1,\dots,\ta_p^C)$ denote person $p$'s unknown ability and $\Theta = (\ta_1,\dots,\ta_P)$. We are free to choose $\ta$'s domain $\Omega$; we choose $\Omega := [-M,M]$ where $M = 5$ ($\ta^c$ may be interpreted as the number of standard deviations from the average ability in dimension $c$, $c=1,\dots,C$).
+Item responses are assumed to be driven by $C$ latent variables $\ta := (\ta_1,\dots,\ta_C)$ representing a person's ability. Let $\ta_p=(\ta_p^1,\dots,\ta_p^C)$ denote person $p$'s unknown ability and $\bta = (\ta_1,\dots,\ta_P)$. We are free to choose $\ta$'s domain $\Omega$; we choose $\Omega := [-M,M]^C$ with a large enough $M$, say, $M = 5$ ($\ta_{i,c}$ may be interpreted as the number of standard deviations away person $i$'s ability is from the average ability in dimension $c$, $c=1,\dots,C$).
 
-A person's response to item $i$ is modeled by an Item Response Function (IRF) $P_i(\ta)$. We represent
-$P_i$ as a numerical function: the $\ta$ domain is covered by a uniform grid of with $n$ bins in each
-dimension, and $P_i$ is some interpolation from its discrete values $\{P_{ij}\}_j$ at bin centers. Here
-$j=(j^1,\dots,j^C)$, $0 \leq j^c < n$ is the bin index. We use a linear interpolation for simplicity, but
-other, smoother schemes may be substituted (e.g., B-splines, as in \cite{matt_bsplines}.
+A person's response to item $i$ is modeled by an Item Response Function (IRF) $P_i(\ta;\beta_i)$, where $\beta_i$ is a vector of item parameters. We represent $P_i$ as a numerical function: the $\ta$ domain is covered by a uniform grid of with $n$ bins in each dimension and meshsize is by $h := 2 M / n$. Let $j=(j_1,\dots,j_C)$, $1 \leq j_c \leq n$ be the bin index, $\left\{\xi_j \right\}_j$ be the bin centers, i.e., $\xi_{jc} = -M + (j_c - \frac12) h$. Let $\left\{\phi_j\right\}_j$ denote all grid points, that is,$\phi_{jc} = -M + j_c h$, $0 \leq j_c \leq n$.
 
-The grid meshsize is denoted by $h := 2 M / n$. We explore adaptive binning in Section~\ref{adaptive_grid},
-which can save much computational work. $n$ controls the IRF resolution, and is increased during estimation:
-as $\theta$ estimates improve, we refine our IRF representation.
+For simplicity, we define $P_i$ as a linear interpolation from its discrete values $\beta_i := \{P_{ij} := P_i(\xi_j)\}_j$ at bin centers. Other, smoother schemes may be substituted (e.g., B-splines, as in \cite{matt_bsplines}).
+
+Thus the unknown model parameters are $\bta$ and $\bbeta := (\beta_1,\dots,\beta_I)$. $n$controls the IRF resolution, and is treated as a hyperparameter that is increased during estimation: as $\ta$ estimates improve, we refine our IRF representation.
+
+A non-uniform grid may be used instead: we explore adaptive binning in Section~\ref{adaptive_grid}, which can save much computational work. 
 
 \subsection{Likelihood}
 The density of $X_{pi}$ can be expressed as 
 \begin{equation}
-  f(x_{pi}|\ta_p) = P_i(\ta_p)^{x_{pi}} \left(1 - P_i(\ta_p)\right)^{1-x_{pi}}\,.
+  f(x_{pi}|\ta_p;\beta_i) = P_i(\ta_p;\beta_i)^{x_{pi}} \left(1 - P_i(\ta_p;\beta_i)\right)^{1-x_{pi}}\,.
 \end{equation}
-We use two standard assumptions of IRT \cite{junker}: experimental independence (person responses are independent) and local independence (a person's responses to items are independent).
-By Bayes' theorem, the posterior distribution of parameters given the responses is proportional to
+We used here two standard assumptions of IRT \cite{junker}: experimental independence (person responses are independent) and local independence (a person's responses to items are independent). By Bayes' theorem, the posterior distribution of latent abilities given the responses is
 \begin{equation}
-  f(\bX|\Theta) := \prod_p \prod_i f(X_{pi}|\ta_p)\,.
+  f(\bta|\bX;\bbeta) \propto\prod_p \prod_i f(X_{pi}|\ta_p;\beta)\,.
   \label{like}
 \end{equation}
 
-\section{Parameter Estimation by MCMC}
-Thanks to the factorized form of (\ref{model}), it follows from (\ref{model})--(\ref{dist_ab}) that the complete conditional densities for the individual parameters are
+\section{Parameter Estimation Algorithm}
+An iterative algorithm for any nonlinear optimization problem requires a good initial guess. The basic idea is to obtain the initial guess by continuation: solve a problem with a low IRF resolution and a small number of persons first, then gradually increase the resolution and number of people until the original problem is obtained. The continuation path is parameterized by $n$ (IRF resolution) and $T$ (simulated annealing temperature controlling the size of Monte-Carlo steps). Let $s=1,\dots,S$ denote the continuation step number.
+
+Instead of creating samples of persons of various sizes for different continuation steps, which may not represent the ability distribution, prior to the continuation we create a hierarchical clustering of persons (Sec.~\ref{miniclustering}). Clusters contain persons with similar response pattern. Each clustering level conveniently corresponds to a continuation step. See Algorithm~\ref{continuation}.
+
+\begin{algorithm}
+	\label{continuation}
+	\caption{$\bta, bbeta = {\mbox{Continuation-MCMC}}(X; T_{init}, T_{decrease}, \nu)$
+(estimate model parameters from responses.)}
+	\begin{algorithmic}
+    \STATE Hierarchically cluster persons: $\left\{G_s\right\}_{s=1}^S \lla Cluster(X)$ (Sec~\ref{miniclustering}).
+    \STATE Coarsen $X$ to $X^1,\dots,X^S$ by (\ref{x_averaging}).
+    \STATE $s \lla 1, T \lla T_{init}, n \lla 4$.
+    \STATE $\bta^s \lla$ initial guess by item clustering at level $C_s$. (Sec.\ref{initial_guess}).
+    \STATE $\bta^s, \bbeta^s = {\mbox{Estimate-MCMC}}(X^s, n, T, \nu, \bta^s)$.
+    \FOR{$s = 2,\dots,S$}
+    	\STATE $n \lla 2 n, T \lla T / T_{decrease}$.
+    	\STATE Interpolate $\bta^s \lla I_{s-1}^s \bta^{s-1}$ (Sec.~\ref{interpolate}). 
+	    \STATE $\bta^s, \bbeta^s = {\mbox{Estimate-MCMC}}(X^s, n, T, \nu, \bta^s)$.
+   	\ENDFOR
+   	\STATE $\bta \lla \bta^S, \bbeta \lla \bbeta^S$.
+	\end{algorithmic}
+\end{algorithm}
+
+\subsection{Person Clustering}
+\label{miniclustering}
+First, we build a hierarchical clustering of persons based on their responses using the method described in \cite{miniclustering}. Each person corresponds to an $I$-dimensional point $X_p = (X_{p1},\dots,X_{pI})$. The top level in the hierarchy consists of a single cluster containing all points. Each clustering level is obtained from the parent level by (1) sub-dividing each parent cluster into $b$ child clusters using k-means within the cluster; and (2) improving all child centers by global k-means, where each point is reassigned to the closest of its $r \approx 5$ nearest centers. This requires maintaining at every level approximate neighboring center lists of each point and each center, which are conveniently and derived from the parent level's neighbor lists (for a child center, we use the nearest $r$ centers within its parent's child centers and the parent's neighbors' child centers; similarly for a point). The entire process requires $O(r I P \log P)$ time and $O(r I P)$ storage.
+
+\subsection{MCMC at a Given Resolution}
+Given an IRF bin resolution $n$ and an initial guess for $\bta$, we calculate the IRF bin values as a histogram:
 \begin{equation}
-  f(\ta_p|rest) \propto \prod_{i \in I_p} 
-  P_i(\ta_p;a_i,b_i)^{x_{pi}} 
-  \left(1 - P_i(\ta_p;a_i,b_i)\right)^{1-x_{pi}},\forall p\,
-  \label{cond_ta}
+	\label{histogram_const}
+	P_{ij} = \frac{\sum_{p \in A_j} X_{pi}}{|A_j|}\,,\qquad
+	A_j := \left\{ p : \phi_{j-1} \leq \ta_p \leq \phi_j \right\}\,.
 \end{equation}
-A Hastings-Metropolis step for a parameter $\tau_k$, $k=1,\dots,K$ requires a proposal distribution $q(\tau^*|\tau_k)$. Assuming symmetric $q$, the step is
+Here $\ta \leq \phi$ for vectors $\ta,\phi \in \R^C$ is defined as elementwise $\leq$, and $j-1 = (j_1-1,\dots,j_C-1)$.
+
+More generally, one can replace (\ref{histogram_const}) by a smoother distribution scheme, where each person contributes a term $w X_{pi}$ to the numerator and $w$ to the denominator of its own bin as well as several neighboring bins $j'$ based on the distance $\theta_p - \xi_{j'}$ (the transpose operation of a linear or higher-order polynomial interpolation). This may be considered when $P_i$'s representation is smoother.
+
+each iteration updates $\bbeta$ by counting the successful responses of the persons in each bin (Sec.~\ref{histogram}), followed by $\nu$ MCMC sweeps to update $\bta$, where each sweep updates $\ta_p$ using Metropolis-Hastings steps, $p=1,\dots,P$ (Sec.~\ref{metropolis}).
+\begin{algorithm}
+\caption{$\bta, bbeta = {\mbox{Estimate-MCMC}}(n, T, nu, \bta_{init}$)
+(estimate model parameters given continuation hyperparameters.)}
+\label{mcmc}
+\begin{algorithmic}
+    \STATE Set $\bta \lla \bta_{init}$.
+    \WHILE{MCMC not converged}
+    	\STATE Update $\bbeta$ by the histogram rule (\ref{histogram_const}).
+    	\FOR{$j=1,\dots,\nu$}
+	    	\FOR{$p=1,\dots,P$}
+	    		\STATE Update $\theta_p$ by a Metropolis-Hastings step (\ref{metropolis_step}).
+	    	\ENDFOR
+    	\ENDFOR
+    \ENDWHILE
+\end{algorithmic}
+\end{algorithm}
+
+\subsection{Updating the IRF: Histogram}
+\label{histogram}
+
+\subsection{Updating $\bta$: Monte-Carlo Steps}
+\label{metropolis}
+A Hastings-Metropolis step for a parameter $\tau_k$, $k=1,\dots,K$ requires a proposal distribution $q(\tau^*|\tau_k)$. Here we 
+
+Assuming symmetric $q$, the step is
 \begin{enumerate}
 	\item Generate a candidate $\tau^*$ using the probability density $q(\tau^*|\tau_k)$.
 	\item Calculate the acceptance probability
@@ -102,7 +154,22 @@ A Hastings-Metropolis step for a parameter $\tau_k$, $k=1,\dots,K$ requires a pr
 	\item Set $\tau_k \leftarrow \tau^*$ with probability $\alpha^*$, otherwise leave $\tau_k$ unchanged.
 \end{enumerate}
 
+Thanks to the factorized form of (\ref{model}) the complete conditional densities for the individual parameters are
+\begin{equation}
+  f(\ta_p|rest) \propto \prod_i 
+  P_i(\ta_p;\beta_i)^{x_{pi}}\left(1 - P_i(\ta_p;\beta_i)\right)^{1-x_{pi}},\forall p\,.
+  \label{cond_ta}
+\end{equation}
+
+
+
 \subsection{Continuation}
+$n$, $T$. As $n$ is coarsened (nested iteration), we cluster persons into aggregates of similar
+response patterns. Either biclustering person-item or clustering the persons in item space.
+
+% Add full multigrid algorithm here (+ figure? or maybe one figure for the entire FMG at the end)
+
+Piecewise constant interpolation in $\bta$ within each cluster.
 
 \section{Quality Measurement}
 The model described here is actually a family of models (depending on the choice of likelihood function weighting, bin refinement strategy, etc.). It is important to compare models by their prediction quality of
@@ -110,7 +177,7 @@ person responses to a set of validation items; if a separate validation data set
 
 {\bf The convergence (equilibration) of the model should also be properly defined, either in terms of target quantities below.}
 
-\section{Target Quantities}
+\subsection{Target Quantities}
 A typical target quantity of interest (e.g., in NAEP) is the mean of some function $g(\cdot)$ of proficiency scores $\ta$ over all individuals in some sub-population $\G$. The Nation's Report Card reports results on the composite scale, which is a weighted average of the sub-scales, $g(\ta) = a^T \ta$ for some fixed $a$. The Nation's Report Card also reports the proportion of persons in $\G$ whose composite score is in some pre-defined achievement range, i.e.,
 \begin{equation}
 	g(\ta) = I_{(l,u)}(a^T \ta) =
@@ -120,7 +187,7 @@ A typical target quantity of interest (e.g., in NAEP) is the mean of some functi
   \end{cases}
 \end{equation}
 
-\section{Fast MCMC}
+\section{Fast Multilevel MCMC}
 \begin{itemize}
 	\item How to measure convergence, i.e., equilibration = convergence to the stationary distribution? 
 	\item How to efficiently generate independent configurations from the stationary distribution once we converged
@@ -134,6 +201,7 @@ A typical target quantity of interest (e.g., in NAEP) is the mean of some functi
 \end{itemize}
 
 \section{Generalizations}
+\label{general}
 
 \subsection{Adaptive Binning}
 \label{adaptive_grid}
@@ -142,9 +210,13 @@ A typical target quantity of interest (e.g., in NAEP) is the mean of some functi
 For simplicity, items were assumed to be multiple-choice.
 \begin{itemize}
 	\item Polytomous: multiple $P_i$'s - one for each response value.
-	\item Continuous-scored items: {\bf is that a real-world scenario, and if it is, need to describe $P_i(\theta|X)$
-	using appropriate grids (tables), adaptive according to which $X$ values are more probable?}
+	\item Continuous-scored items: {\bf is that a real-world scenario, and if it is, 
+	need to describe $P_i(\theta|X)$ using appropriate grids (tables), with adaptive resolution
+	according to local derivates of $X$?}
 \end{itemize}
+
+\section{Acknowledgments}
+ETS project code.
 
 \bibliographystyle{alpha}
 \bibliography{irt_mcmc}

@@ -22,8 +22,8 @@
 
 \title{Non-parametric Item Response Theory: Modeling and Fast MCMC Estimation}
 
-\author[1]{Oren Livne \thanks{660 Rosedale Road, Attn: MS-12, T-197, Princeton, NJ 08540. Email: olivne@ets.org}}
-\affil[1]{Educational Testing Service}
+\author[1]{Oren Livne}
+\affil[1]{Educational Testing Service, 660 Rosedale Road, Attn: MS-12, T-197, Princeton, NJ 08540. Email: olivne@ets.org}
 \date{\today}
 
 \begin{document}
@@ -97,7 +97,7 @@ Instead of creating samples of persons of various sizes for different continuati
     \STATE $(\bta^s, \bbeta^s) = {\mbox{Estimate-MCMC}}(X^s, n, T, \nu, \bta^s)$.
     \FOR{$s = 2,\dots,S$}
     	\STATE $n \lla 2 n, T \lla T / T_{decrease}$.
-    	\STATE Interpolate $\bta^s \lla \I_{s-1}^s \bta^{s-1}$ (Sec.~\ref{interpolate}). 
+    	\STATE Interpolate $\bta^s \lla \I_{s-1}^s \bta^{s-1}$ (Eq.~\ref{interpolate}). 
 	    \STATE $(\bta^s, \bbeta^s) = {\mbox{Estimate-MCMC}}(X^s, n, T, \nu, \bta^s)$.
    	\ENDFOR
    	\STATE $\bta \lla \bta^S, \bbeta \lla \bbeta^S$.
@@ -106,7 +106,7 @@ Instead of creating samples of persons of various sizes for different continuati
 
 \subsection{Person Clustering}
 \label{miniclustering}
-First, we build a hierarchical clustering of persons based on their responses following the method described in \cite{miniclustering}. Each person corresponds to an $I$-dimensional point $X_p = (X_{p1},\dots,X_{pI})$. The hierarchy consists of levels $\left\{\cG^s\right\}_{s=1}^S$ where each level is a set of person groups $\cG_s := \left\{G_l\right\}_{l=1}^{P^s}$.
+First, we build a hierarchical clustering of persons based on their responses using the method of \cite{miniclustering}. Each person corresponds to an $I$-dimensional point $X_p = (X_{p1},\dots,X_{pI})$. The hierarchy consists of levels $\left\{\cG^s\right\}_{s=1}^S$ where each level is a set of person groups $\cG_s := \left\{G_l\right\}_{l=1}^{P^s}$.
 
 $G^1$ consists of $g^1 = 2C$ groups, and is obtained by k-means (as opposed to a single group in \cite{miniclustering}; we need at least $C$ groups to generate the initial guess; see Sec.~\ref{initial_guess}). Each $G^s$, $s=2,\dots,S$ is obtained from the parent level $G^{s-1}$ by (1) sub-dividing each parent group into $b$ child groups using k-means within the group; and (2) improving all child centers by global k-means, where each point is reassigned to the closest of its $r \approx 5$ nearest centers. This requires maintaining at every level approximate neighboring center lists of each point and each center, which are conveniently and derived from the parent level's neighbor lists (for a child center, we use the nearest $r$ centers within its parent's child centers and the parent's neighbors' child centers; similarly for a point). The entire process requires $O(r I P \log P)$ time and $O(r I P)$ storage.
 
@@ -131,7 +131,8 @@ At the coarsest level ($s=1$), we cluster items to $C$ clusters $\left\{T_c\righ
 
 At subsequent levels we initialize $\bta^s$ by a piecewise constant interpolation from $\bta^{s-1}$:
 \begin{equation}
-	\ta^s_{pc} = \left(\I_{s-1}^s \bta^{s-1}\right)_{pc} \bta^{s-1}_{lc}\,,\\qquad c=1,\dots,C\,, l=1,\dots,P^{s-1}\,,p \in G^{s-1}_l\,.
+	\ta^s_{pc} = \left(\I_{s-1}^s \bta^{s-1}\right)_{pc} := \ta^{s-1}_{lc}\,,\qquad c=1,\dots,C\,, l=1,\dots,P^{s-1}\,,p \in G^{s-1}_l\,.
+	\label{interpolate}
 \end{equation}
 $\I_{s-1}^s$ is a matrix, since this is a linear operation. This initialization seems simple and adequate; if it isn't, a higher order interpolation could be considered instead, for instance,
 \begin{equation}
@@ -143,7 +144,7 @@ where $l$ runs over a set of neighboring parent group centers (already available
 In this section we assume $n$ and $T$ are fixed, and omit the $s$-superscripts from all quantities. Given the initial guess for $\bta$, we alternate between updating the IRF and $\nu$ MCMC sweeps to update $\bta$, where each sweep updates $\ta_p$ using Metropolis-Hastings steps, $p=1,\dots,P$ (Sec.~\ref{metropolis}). This is repeated until the Markov Chain converges to the stationary distribution $f(\bta,\bbeta|X)$.
 
 \begin{algorithm}
-\caption[]{$(\bta, \bbeta) = {\mbox{Estimate-MCMC}}(n, T, \nu, \bta_{init}$\\\hspace{\textwidth}
+\caption[]{$(\bta, \bbeta) = {\mbox{Estimate-MCMC}}(n, T, \nu, \bta_{init})$\\\hspace{\textwidth}
 Estimate model parameters given continuation hyperparameters.}
 \label{mcmc}
 \begin{algorithmic}
@@ -152,7 +153,7 @@ Estimate model parameters given continuation hyperparameters.}
     	\STATE Update $\bbeta$ by the histogram rule (\ref{histogram_const}).
     	\FOR{$j=1,\dots,\nu$}
 	    	\FOR{$p=1,\dots,P$}
-	    		\STATE Update $\theta_p$ by a Metropolis-Hastings step (\ref{metropolis_step}).
+	    		\STATE Update $\theta_p$ by a Metropolis-Hastings step (Sec.~\ref{metropolis}).
 	    	\ENDFOR
     	\ENDFOR
     \ENDWHILE
@@ -252,7 +253,7 @@ The work reported herein was supported by Educational Testing Service Research A
 
 The author would like to thank Achi Brandt for his insightful suggestions regarding the modeling and algorithm.
 
-\bibliographystyle{alpha}
+\bibliographystyle{plain}
 \bibliography{irt_mcmc}
 
 \end{document}

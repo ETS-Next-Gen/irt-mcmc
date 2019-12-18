@@ -5,26 +5,25 @@
 \usepackage{algorithm}
 \usepackage{algorithmic}
 
+\newcommand{\bbeta}{\boldsymbol\beta}
+\newcommand{\bt}{\boldsymbol\tau}
+\newcommand{\bta}{\boldsymbol\ta}
+\newcommand{\bY}{\mathbf{Y}}
 \newcommand{\cC}{\mathcal{C}}
 \newcommand{\cG}{\mathcal{G}}
-\newcommand{\Normal}{\mathcal{N}}
-\newcommand{\G}{\mathcal{G}}
-\newcommand{\R}{\mathbb{R}}
-\newcommand{\bX}{\mathbf{X}}
-\newcommand{\bY}{\mathbf{Y}}
-\newcommand{\bt}{\boldsymbol\tau}
 \newcommand{\st}{v_{\ta}}
 \newcommand{\ta}{\theta}
-\newcommand{\bbeta}{\boldsymbol\beta}
-\newcommand{\bta}{\boldsymbol\ta}
 \newcommand{\lla}{\longleftarrow}
+\newcommand{\G}{\mathcal{G}}
+\newcommand{\I}{\mathbb{I}}
+\newcommand{\Normal}{\mathcal{N}}
+\newcommand{\R}{\mathbb{R}}
+\newcommand{\bX}{\mathbf{X}}
 
 \title{Non-parametric Item Response Theory: Modeling and Fast MCMC Estimation}
 
-\author[1]{Oren Livne}
-\author[2]{Achi Brandt}
-\affil[1]{Educational Testing Service, Attn: MS-12, T-197, 660 Rosedale Road, Princeton, NJ 08540. Email: olivne@ets.org}
-\affil[2]{Faculty of Mathematics and Computer Science, The Weizmann Institute of Science, 234 Herzl Street, Rehovot 7610001 Israel. Email: achi.brandt@weizmann.ac.il}
+\author[1]{Oren Livne \thanks{660 Rosedale Road, Attn: MS-12, T-197, Princeton, NJ 08540. Email: olivne@ets.org}}
+\affil[1]{Educational Testing Service}
 \date{\today}
 
 \begin{document}
@@ -83,7 +82,7 @@ We used here two standard assumptions of IRT \cite{junker}: experimental indepen
 \end{equation}
 
 \section{Parameter Estimation Algorithm}
-An iterative algorithm for any nonlinear optimization problem requires a good initial guess. The basic idea is to obtain the initial guess by continuation: solve a problem with a low IRF resolution and a small number of persons first, then gradually increase the resolution and number of people until the original problem is obtained. The continuation path is parameterized by $n$ (IRF resolution) and $T$ (simulated annealing temperature controlling the size of Monte-Carlo steps). $s=1,\dots,S$ denote the continuation step number.
+An iterative algorithm for any nonlinear optimization problem requires a good initial guess. The basic idea is to obtain the initial guess by continuation: solve a problem with a low IRF resolution and a small number of persons first, then gradually increase the resolution and number of people until the original problem is obtained. The continuation path is parameterized by $n$ (IRF resolution) and $T$ (simulated annealing temperature controlling the size of Monte-Carlo steps). $s=1,\dots,S$ denote the continuation step number; quantities associated with step $s$ are denoted with an $s$-superscript.
 
 Instead of creating samples of persons of various sizes for different continuation steps, which may not represent the ability distribution, prior to the continuation we create a hierarchical clustering of persons (Sec.~\ref{miniclustering}). Groups contain persons with similar response pattern. Each clustering level conveniently corresponds to a continuation step. See Algorithm~\ref{continuation}.
 
@@ -94,11 +93,11 @@ Instead of creating samples of persons of various sizes for different continuati
     \STATE Hierarchically cluster persons: $\left\{\cG^s\right\}_{s=1}^S \lla Cluster(X)$ (Sec~\ref{miniclustering}).
     \STATE Coarsen $X$ to $X^1,\dots,X^S$ by (\ref{x_averaging}).
     \STATE $s \lla 1, T \lla T_{init}, n \lla 4$.
-    \STATE $\bta^s \lla$ initial guess by item clustering at level $C_s$. (Sec.\ref{initial_guess}).
+    \STATE $\bta^s \lla$ initial guess by item clustering at level $C_s$. (Sec.\ref{initial_guess}, Eq.~(\ref{coarsest_init})).
     \STATE $(\bta^s, \bbeta^s) = {\mbox{Estimate-MCMC}}(X^s, n, T, \nu, \bta^s)$.
     \FOR{$s = 2,\dots,S$}
     	\STATE $n \lla 2 n, T \lla T / T_{decrease}$.
-    	\STATE Interpolate $\bta^s \lla I_{s-1}^s \bta^{s-1}$ (Sec.~\ref{interpolate}). 
+    	\STATE Interpolate $\bta^s \lla \I_{s-1}^s \bta^{s-1}$ (Sec.~\ref{interpolate}). 
 	    \STATE $(\bta^s, \bbeta^s) = {\mbox{Estimate-MCMC}}(X^s, n, T, \nu, \bta^s)$.
    	\ENDFOR
    	\STATE $\bta \lla \bta^S, \bbeta \lla \bbeta^S$.
@@ -107,29 +106,38 @@ Instead of creating samples of persons of various sizes for different continuati
 
 \subsection{Person Clustering}
 \label{miniclustering}
-First, we build a hierarchical clustering of persons based on their responses following the method described in \cite{miniclustering}. Each person corresponds to an $I$-dimensional point $X_p = (X_{p1},\dots,X_{pI})$. The hierarchy consists of levels $\left\{\cG^s\right\}_{s=1}^S$ where each level is a set of person groups $\cG_s := \left\{G_l\right\}_{l=1}^{g^s}$.
+First, we build a hierarchical clustering of persons based on their responses following the method described in \cite{miniclustering}. Each person corresponds to an $I$-dimensional point $X_p = (X_{p1},\dots,X_{pI})$. The hierarchy consists of levels $\left\{\cG^s\right\}_{s=1}^S$ where each level is a set of person groups $\cG_s := \left\{G_l\right\}_{l=1}^{P^s}$.
 
 $G^1$ consists of $g^1 = 2C$ groups, and is obtained by k-means (as opposed to a single group in \cite{miniclustering}; we need at least $C$ groups to generate the initial guess; see Sec.~\ref{initial_guess}). Each $G^s$, $s=2,\dots,S$ is obtained from the parent level $G^{s-1}$ by (1) sub-dividing each parent group into $b$ child groups using k-means within the group; and (2) improving all child centers by global k-means, where each point is reassigned to the closest of its $r \approx 5$ nearest centers. This requires maintaining at every level approximate neighboring center lists of each point and each center, which are conveniently and derived from the parent level's neighbor lists (for a child center, we use the nearest $r$ centers within its parent's child centers and the parent's neighbors' child centers; similarly for a point). The entire process requires $O(r I P \log P)$ time and $O(r I P)$ storage.
 
 A response matrix can be calculated for each clustering level by averaging the scores of persons in each group: $X^S := X$, and for each $s = S-1,S-2,\dots,1$,
 \begin{equation}
 	X^{s-1}_{l,c} = \frac{\sum_{m \in \cC^{s-1}_l} |G^{s-1}_m| X^{s-1}_{m,c}}{|G^s_c|}\,,
-	\quad l=1,\dots,g^s\,,\quad c = 1,\dots,C\,,
+	\quad l=1,\dots,P^s\,,\quad c = 1,\dots,C\,,
+	\label{x_averaging}
 \end{equation}
 where $\cC^{s-1}_l$ is the set of level-$s$ child groups of 
 
 \subsection{Initial Guess}
 \label{initial_guess}
-At the coarsest level, we cluster items to $C$ clusters $\left\{T_c\right\}_{c=1}^C$ using k-means. Each item $i$ corresponds to the point $(X^1_{1,i},\dots,X^1_{g^1,i})$. Since $g^1$ is sufficiently larger than $C$, we have enough information for a meaningful clustering. For each $c=1,\dots,C$,we set
-\begin{equation}
-	\ta^1_{pc} = \frac{\sum
-	}{|T_c}
-	
-	
-	\sum_{ \in \cC^{s-1}_l} |G^{s-1}_m| X^{s-1}_{m,c}}{|G^s_c|}\,,
-	\quad l=1,\dots,g^s\,,\quad c = 1,\dots,C\,,
+At the coarsest level ($s=1$), we cluster items to $C$ clusters $\left\{T_c\right\}_{c=1}^C$ using k-means. Each item $i$ corresponds to the point $(X^1_{1,i},\dots,X^1_{g^1,i})$. Since $g^1$ is sufficiently larger than $C$, we have enough information for a meaningful clustering. For each $c=1,\dots,C$ and each person group $p=1,\dots,P$, we calculate the fraction $f_{pc}$ of correct responses of $p$ to items in $T_c$, and initialize $\ta^1_{pc}$ to the number of standard deviations away from the mean fraction; namely,
+\begin{eqnarray}
+	f_{pc} &=& \frac{\sum_{i \in T_c} X^1_{pi}}{|T_c|} \\
+	\bar{f}_c &=& \frac{1}{P^1} \sum_{p=1}^{P^1} f_{pc} \\
+	\sigma_c &=& \left(\frac{1}{P^1-1} (f_{pc} - \bar{f}_c)^2 \right)^{\frac12} \\
+	\ta^1_{pc} &=& \frac{f_{pc} - \bar{f}_c}{\sigma_c}\,.
+	\label{coarsest_init}
+\end{eqnarray}
 
+At subsequent levels we initialize $\bta^s$ by a piecewise constant interpolation from $\bta^{s-1}$:
+\begin{equation}
+	\ta^s_{pc} = \left(\I_{s-1}^s \bta^{s-1}\right)_{pc} \bta^{s-1}_{lc}\,,\\qquad c=1,\dots,C\,, l=1,\dots,P^{s-1}\,,p \in G^{s-1}_l\,.
 \end{equation}
+$\I_{s-1}^s$ is a matrix, since this is a linear operation. This initialization seems simple and adequate; if it isn't, a higher order interpolation could be considered instead, for instance,
+\begin{equation}
+	\ta^s_{pc} = \sum_l w_{pl} \bta^{s-1}_{lc}\,,
+\end{equation}
+where $l$ runs over a set of neighboring parent group centers (already available from the person clustering of Sec.~\ref{miniclustering}), $w_{pl} \propto \phi(\|X^{s-1}_l-X^s_p\|)$ are chosen to interpolate some polynomials exactly, and $\phi$ is a suitable radial basis function.
 
 \subsection{MCMC at a Given Resolution}
 In this section we assume $n$ and $T$ are fixed, and omit the $s$-superscripts from all quantities. Given the initial guess for $\bta$, we alternate between updating the IRF and $\nu$ MCMC sweeps to update $\bta$, where each sweep updates $\ta_p$ using Metropolis-Hastings steps, $p=1,\dots,P$ (Sec.~\ref{metropolis}). This is repeated until the Markov Chain converges to the stationary distribution $f(\bta,\bbeta|X)$.
@@ -240,7 +248,9 @@ For simplicity, items were assumed to be multiple-choice.
 \end{itemize}
 
 \section{Acknowledgments}
-ETS project code.
+The work reported herein was supported by Educational Testing Service Research Allocation Project {\bf TBD...}.
+
+The author would like to thank Achi Brandt for his insightful suggestions regarding the modeling and algorithm.
 
 \bibliographystyle{alpha}
 \bibliography{irt_mcmc}

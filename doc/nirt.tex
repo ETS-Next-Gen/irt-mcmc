@@ -84,12 +84,12 @@ We used here two standard assumptions of IRT \cite{junker}: experimental indepen
 \section{Parameter Estimation Algorithm}
 An iterative algorithm for any nonlinear optimization problem requires a good initial guess. The basic idea is to obtain the initial guess by continuation: solve a problem with a low IRF resolution and a small number of persons first, then gradually increase the resolution and number of people until the original problem is obtained. The continuation path is parameterized by $n$ (IRF resolution) and $T$ (simulated annealing temperature controlling the size of Monte-Carlo steps). $s=1,\dots,S$ denote the continuation step number; quantities associated with step $s$ are denoted with an $s$-superscript.
 
-Instead of creating samples of persons of various sizes for different continuation steps, which may not represent the ability distribution, prior to the continuation we create a hierarchical clustering of persons (Sec.~\ref{miniclustering}). Groups contain persons with similar response pattern. Each clustering level conveniently corresponds to a continuation step. See Algorithm~\ref{continuation}.
+Instead of creating samples of persons of various sizes for different continuation steps, which may not represent the ability distribution, prior to the continuation we create a hierarchical clustering of persons (Sec.~\ref{miniclustering}). Groups contain persons with similar response pattern. Each clustering level conveniently corresponds to a continuation step. See Algorithm~\ref{continuation_mcmc}.
 
 \begin{algorithm}
-	\label{continuation}
 	\caption[]{$(\bta, \bbeta) = {\mbox{Continuation-MCMC}}(X; T_{init}, T_{decrease}, \nu)$\\\hspace{\textwidth}Estimate model parameters from responses.}
 	\begin{algorithmic}
+	\label{continuation_mcmc}
     \STATE Hierarchically cluster persons: $\left\{\cG^s\right\}_{s=1}^S \lla Cluster(X)$ (Sec~\ref{miniclustering}).
     \STATE Coarsen $X$ to $X^1,\dots,X^S$ by (\ref{x_averaging}).
     \STATE $s \lla 1, T \lla T_{init}, n \lla 4$.
@@ -146,14 +146,14 @@ In this section we assume $n$ and $T$ are fixed, and omit the $s$-superscripts f
 \begin{algorithm}
 \caption[]{$(\bta, \bbeta) = {\mbox{Estimate-MCMC}}(n, T, \nu, \bta_{init})$\\\hspace{\textwidth}
 Estimate model parameters given continuation hyperparameters.}
-\label{mcmc}
 \begin{algorithmic}
+	\label{mcmc}
     \STATE Set $\bta \lla \bta_{init}$.
     \WHILE{MCMC not converged}
     	\STATE Update $\bbeta$ by the histogram rule (\ref{histogram_const}).
     	\FOR{$j=1,\dots,\nu$}
 	    	\FOR{$p=1,\dots,P$}
-	    		\STATE Update $\theta_p$ by a Metropolis-Hastings step (Sec.~\ref{metropolis}).
+	    		\STATE $\ta_p \lla Metropolis-Step(\ta, T, p)$) (Sec.~\ref{metropolis}).
 	    	\ENDFOR
     	\ENDFOR
     \ENDWHILE
@@ -169,7 +169,7 @@ Given an IRF bin resolution $n$ and an initial guess for $\bta$, we calculate th
 	A_j := \left\{ p : \varphi_{j-1} \leq \ta_p < \varphi_j \right\}\,.
 \end{equation}
 Here $\ta \leq \varphi$ for vectors $\ta,\varphi \in \R^C$ is defined as elementwise $\leq$, and $j-1 = (j_1-1,\dots,j_C-1)$.
-More generally, one can replace (\ref{histogram_const}) by a smoother distribution scheme, where each person contributes a term $w X_{pi}$ to the numerator and $w$ to the denominator of its own bin as well as several neighboring bins $j'$ based on the distance $\theta_p - \xi_{j'}$ (the transpose operation of a linear or higher-order polynomial interpolation). This may be considered when $P_i$'s representation is smoother.
+More generally, one can replace (\ref{histogram_const}) by a smoother distribution scheme, where each person contributes a term $w X_{pi}$ to the numerator and $w$ to the denominator of its own bin and several neighboring bins $j'$ where $w$ is inversely proportional to $\ta_p - \xi_{j'}$ (this is the transpose operation of a polynomial interpolation from bin centers to $\ta_p$). This may be considered when $P_i$'s representation is smoother.
 
 \subsection{Updating $\bta$: Monte-Carlo Steps}
 \label{metropolis}
@@ -179,30 +179,38 @@ From (\ref{model}) it follows that the complete conditional density of $\ta_p$ i
   P_i(\ta_p;\beta_i)^{x_{pi}}\left(1 - P_i(\ta_p;\beta_i)\right)^{1-x_{pi}}\,.
   \label{cond_ta}
 \end{equation}
-A Hastings-Metropolis step for $\ta_p$ requires a proposal distribution $q(\ta_*|\ta_p)$. We assume a symmetric $q$, 
+A Hastings-Metropolis step for $\ta_p$ requires a proposal distribution $q(\ta_*|\ta_p)$. We choose a symmetric $q$ that moves $\ta_p$ by a fraction of its bin size:
+\begin{equation}
+	q(\ta_*|\ta_p) = \Normal(\ta_p, \frac{h}{4} I_C)
+	\label{proposal}
+\end{equation}
+where $I_C$ is the $C \times C$ identity matrix.
 
+Similarly to simulated annealing in statistical physics, the temperature $T$ controls the step. For $T = \infty$, we always accept $\ta^*$; $T = 1$ is the standard Metropolis step; as $T \rightarrow 0$, we accept if and only if $\ta^*$ increases (\ref{cond_ta}). The acceptance probability is
+\begin{equation}
+	\alpha_* := \min\left\{1, e^{\log(f(\ta_*|rest)/f(\ta_p|rest))/T} \right\}\,.
+	\label{acceptable}
+\end{equation}
 
-
-therefore the step is
-\begin{enumerate}
-	\item Generate a candidate $\ta_*$ using the probability density $q(\ta_*|\ta_p)$.
-	\item Calculate the acceptance probability
-	\begin{equation}
-		\alpha_* := \min\left\{1, \frac{f(\ta_*|rest)}{f(\ta_p|rest)} \right\}\,.
-	\end{equation}
+\begin{algorithm}
+\caption[]{$\ta = {\mbox{Metropolis-Step}}(T, \ta_p, p)$\\\hspace{\textwidth}
+Update a single person parameter given parameters given continuation hyperparameters.}
+\begin{algorithmic}
+	\label{metropolis_step}
+    \STATE Select $\ta_* \sim q(\ta_*|\ta_p)$ (Eq.~\ref{proposal}).
+	\STATE Calculate $\alpha^*$ by (\ref{acceptable}).
 	\item Set $\ta_p \leftarrow \ta_*$ with probability $\alpha^*$, otherwise leave $\ta_p$ unchanged.
-\end{enumerate}
+\end{algorithmic}
+\end{algorithm}
 
-
-\subsubsection{Stopping Resolution}
+\subsubsection{Stopping Criterion}
 
 \subsection{Continuation Policy}
-$n$, $T$. As $n$ is coarsened (nested iteration), we cluster persons into aggregates of similar
-response patterns. Either biclustering person-item or clustering the persons in item space.
-
-% Add full multigrid algorithm here (+ figure? or maybe one figure for the entire FMG at the end)
-
-Piecewise constant interpolation in $\bta$ within each cluster.
+Starting from $n = 4, T=T_{init}$. At every continuation step we double the IRF resolution $n$ while decreasing $T$ by $T_{decrease}$ (Algorithm~\ref{continuation_mcmc}). The choice of parameters should be robust to different data sets. We pick
+\begin{equation}
+	T_{init} = 10\,,\qquad T_{decrease} = \log_{S/2} 0.1\,,
+\end{equation}
+so that $T=10$ at the coarsest level, $T=1$ in the middle of the continuation, and $T=0.1$ at the end. Tuning should be obtained by data experimentation. 
 
 \section{Quality Measurement}
 The model described here is actually a family of models (depending on the choice of likelihood function weighting, bin refinement strategy, etc.). It is important to compare models by their prediction quality of
@@ -233,6 +241,9 @@ A typical target quantity of interest (e.g., in NAEP) is the mean of some functi
 	\item Measure coarse variable set quality by Compatible MC (CMC)'s convergence rate. Since this should be a fast convergence for a good set, convergence of target quantities may suffice to define the convergence rate here.
 \end{itemize}
 
+% Add clustering preprocessing and full multigrid algorithm flow diagram here.
+
+
 \section{Generalizations}
 \label{general}
 
@@ -244,7 +255,7 @@ For simplicity, items were assumed to be multiple-choice.
 \begin{itemize}
 	\item Polytomous: multiple $P_i$'s - one for each response value.
 	\item Continuous-scored items: {\bf is that a real-world scenario, and if it is, 
-	need to describe $P_i(\theta|X)$ using appropriate grids (tables), with adaptive resolution
+	need to describe $P_i(\ta|X)$ using appropriate grids (tables), with adaptive resolution
 	according to local derivates of $X$?}
 \end{itemize}
 

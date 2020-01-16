@@ -10,18 +10,20 @@ setup(
     # Metadata
     name="cluster",
     version="0.1.0",
-    description="CNTree (Clusters & Neighbors Tree) mini-clustering algorithm",
+    description="Fast Non-Parametric Item Response Theory Solver",
 
     # Package info
-    packages=["cntree", "bicluster"],
+    packages=["nirt"],
     include_package_data=True,
     zip_safe=True,
     install_requires=[
         "bottleneck",
         "cython",
+        "kmodes",
         "matplotlib",  # For plotting clusters only
         "numpy",
-        "scikit-learn", 'pytest'
+        "pytest",
+        "scikit-learn",
     ],
     ext_modules=cythonize(["cntree/*.pyx"], annotate=True),
     package_dir={'cluster': ''},

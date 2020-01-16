@@ -120,7 +120,9 @@ where $\cC^{s-1}_l$ is the set of level-$s$ child groups of
 
 \subsection{Initial Guess}
 \label{initial_guess}
-At the coarsest level ($s=1$), we cluster items to $C$ clusters $\left\{T_c\right\}_{c=1}^C$ using k-means. Each item $i$ corresponds to the point $(X^1_{1,i},\dots,X^1_{g^1,i})$. Since $g^1$ is sufficiently larger than $C$, we have enough information for a meaningful clustering. For each $c=1,\dots,C$ and each person group $p=1,\dots,P$, we calculate the fraction $f_{pc}$ of correct responses of $p$ to items in $T_c$, and initialize $\ta^1_{pc}$ to the number of standard deviations away from the mean fraction; namely,
+At the coarsest level ($s=1$), we cluster items to $C$ clusters $\left\{T_c\right\}_{c=1}^C$ using k-means. Note that clustering the original binary data is not meaningful, as it is very high dimensional (k-means or its discrete cousin, k-mode, are unlikely to provide good clusters). But at the coarsest grid we only have $2C$- dimensional item vectors containing averages over large person groups, so k-means should be fine.
+
+Each item $i$ corresponds to the point $(X^1_{1,i},\dots,X^1_{g^1,i})$. Since $g^1$ is sufficiently larger than $C$, we have enough information for a meaningful clustering. For each $c=1,\dots,C$ and each person group $p=1,\dots,P$, we calculate the fraction $f_{pc}$ of correct responses of $p$ to items in $T_c$, and initialize $\ta^1_{pc}$ to the number of standard deviations away from the mean fraction; namely,
 \begin{eqnarray}
 	f_{pc} &=& \frac{\sum_{i \in T_c} X^1_{pi}}{|T_c|} \\
 	\bar{f}_c &=& \frac{1}{P^1} \sum_{p=1}^{P^1} f_{pc} \\

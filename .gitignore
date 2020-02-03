@@ -6,4 +6,4 @@
 **/*.synctex.gz
 **/.idea
 **/.ipynb_checkpoints
-
+**/__pycache__

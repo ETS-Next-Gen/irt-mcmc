@@ -112,8 +112,8 @@ $G^1$ consists of $g^1 = 2C$ groups, and is obtained by k-means (as opposed to a
 
 A response matrix can be calculated for each clustering level by averaging the scores of persons in each group: $X^S := X$, and for each $s = S-1,S-2,\dots,1$,
 \begin{equation}
-	X^{s-1}_{l,c} = \frac{\sum_{m \in \cC^{s-1}_l} |G^{s-1}_m| X^{s-1}_{m,c}}{|G^s_c|}\,,
-	\quad l=1,\dots,P^s\,,\quad c = 1,\dots,C\,,
+	X^s_{p,i} = \frac{\sum_{m \in \cC^{s+1}_l} |G^{s+1}_m| X^{s+1}_{m,i}}{|G^s_p|}\,,
+	\quad p=1,\dots,P^s\,,\quad i = 1,\dots,I\,,
 	\label{x_averaging}
 \end{equation}
 where $\cC^{s-1}_l$ is the set of level-$s$ child groups of 

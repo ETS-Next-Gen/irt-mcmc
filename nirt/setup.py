@@ -8,9 +8,9 @@ with open("README.md", "r") as fh:
 
 setup(
     # Metadata
-    name="cluster",
+    name="irt",
     version="0.1.0",
-    description="CNTree (Clusters & Neighbors Tree) mini-clustering algorithm",
+    description="Non-parametric IRT with MCMC estimation",
 
     # Package info
     packages=["cntree", "bicluster"],
@@ -23,7 +23,7 @@ setup(
         "numpy",
         "scikit-learn", 'pytest'
     ],
-    ext_modules=cythonize(["cntree/*.pyx"], annotate=True),
+    #ext_modules=cythonize(["cntree/*.pyx"], annotate=True),
     package_dir={'cluster': ''},
     include_dirs=[numpy.get_include()],
 )

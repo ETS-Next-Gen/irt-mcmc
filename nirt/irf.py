@@ -1,19 +1,19 @@
-"""Non-parametric (binned) Item Response Function (IRF) building from thetas."""
+"""Builds non-parametric (binned) Item Response Function (IRF) from thetas."""
 import numpy as np
 
 """Range of item response function domain."""
 M = 10
 
 
-def histogram(X, bins):
-    score = np.array([sum(X[b]) for b in bins])
-    count = np.array([len(X[b]) for b in bins])
+def histogram(x, bins):
+    score = np.array([sum(x[b]) for b in bins])
+    count = np.array([len(x[b]) for b in bins])
     return score, count
 
 
 def create_bins(theta, n):
     j = bin_index(theta, n)
-    # Inefficient but good enough for now.
+    # Inefficient implementation, but good enough for now.
     return np.array([np.where(j == index)[0] for index in range(n)])
 
 
@@ -23,12 +23,23 @@ def sample_bins(theta, n, sample_size):
 
 
 def bin_index(theta, n):
-    h = (2 * M)/n
-    j = ((theta + M) / h).astype(int)
-    # Anything off to the left is lumped into the left-most bin; similarly for the right boundary.
-    return np.minimum(np.maximum(j, 0), n-1)
+    """
+    Returns the bin index of a latent ability value 'theta'. If |theta| <= M, bins are uniformly spaced. Anything off
+    to the left is lumped into the left-most bin; similarly for the right boundary.
+
+    @param theta: person latent ability in a certain dimension.
+    @param n: number of bins
+    @return: bin index in [0..j-1].
+    """
+    theta_left, h = -M, (2 * M) / n
+    return np.minimum(np.maximum(((theta - theta_left) / h).astype(int), 0), n - 1)
 
 
-def theta_range(n):
+def bin_centers(n):
+    """
+    Returns an array of bin centers.
+    @param n: number of bins.
+    @return: array, shape=(n,) bin centers.
+    """
     h = (2 * M) / n
     return np.linspace(-M + h / 2, M - h / 2, n)

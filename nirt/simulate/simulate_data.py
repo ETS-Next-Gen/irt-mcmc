@@ -92,7 +92,7 @@ def plot_model_irf(ax, i, item_params, n, color="black", label=None):
     a, b, c, asym = item_params
     def original_irf(t): return three_pl_model(t, a, b, asym)
     M = nirt.irf.M
-    theta_range = nirt.irf.theta_range(n)
+    theta_range = nirt.irf.bin_centers(n)
     t_continuous = np.linspace(-M, M, 100)
     ax.scatter(theta_range, original_irf(theta_range), color=color, s=30, label=label)
     ax.plot(t_continuous, original_irf(t_continuous), color=color)
@@ -102,7 +102,7 @@ def plot_model_irf(ax, i, item_params, n, color="black", label=None):
 
 def plot_discrete_irf(ax, i, irf, n, color="black", label=None):
     score, count = irf
-    theta_range = nirt.irf.theta_range(n)
+    theta_range = nirt.irf.bin_centers(n)
     has_data = count > 0
     irf = score[has_data] / count[has_data]
     ax.scatter(theta_range[has_data], irf, color=color, s=30, label=label)

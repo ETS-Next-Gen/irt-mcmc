@@ -3,6 +3,7 @@
 **/*.bbl
 **/*.blg
 **/*.dvi
+**/**.pyc
 **/*.synctex.gz
 **/.idea
 **/.ipynb_checkpoints

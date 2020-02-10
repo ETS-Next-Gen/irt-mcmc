@@ -1,45 +1,58 @@
 """Estimates theta given IRFs using Monte Carlo Markov Chain (MCMC) simulation to approximate the maximum likelihood
 estimator for theta."""
+import logging
 import numpy as np
 import nirt.irf
+import nirt.likelihood
 
 
-class ThetaEstimator:
-    def __init__(self, x, irf, temperature):
-        self._x = x
-        self._irf = irf
-        self._temperature = temperature
-
-    @property
-    def num_items(self):
-        return self.irf.shape[0]
+class McmcThetaEstimator:
+    def __init__(self, likelihood, temperature):
+        self._likelihood = likelihood
+        self.temperature = temperature
+        self.num_accepted = 0
+        self.num_steps = 0
 
     @property
-    def num_bins(self):
-        return self.irf.shape[1]
+    def acceptance_fraction(self):
+        return self.num_accepted / self.num_steps
 
     @property
     def meshsize(self):
-        return (2 * nirt.irf.M) / self.num_bins
+        return (2 * nirt.irf.M) / self._likelihood.num_bins
 
     def select_proposal(self, theta_p):
-        return np.random.normal(theta_p, self.meshsize / 4, 1)
+        return np.random.normal(theta_p, self.meshsize / 8, 1)[0]
 
-    def log_likelihood(self, theta):
-        return sum(self.person_log_likelihood(p, theta_p) for p, theta_p in enumerate(theta))
+    def metropolis_step(self, p, c, theta_pc):
+        theta_proposed = self.select_proposal(theta_pc)
+        energy_proposed = self._likelihood.person_log_likelihood(p, c, theta_proposed)
+        energy = self._likelihood.person_log_likelihood(p, c, theta_pc)
+        energy_diff = energy_proposed - energy
+        alpha = min(1, np.exp(energy_diff / self.temperature))
+        accepted = np.random.random() < alpha
+        logger = logging.getLogger("metropolis_step")
+        logger.info("p {} theta_p {:.2f} proposed {:.2f} energy_diff {:.2f} = {:.2f} - {:.2f} alpha {:.2f} accepted {}".format(
+            p, theta_pc, theta_proposed, energy_diff, energy_proposed, energy, alpha, accepted))
+        self.num_steps += 1
+        self.num_accepted += accepted
+        return theta_proposed if accepted else theta_pc
 
-    def person_log_likelihood(self, p, theta_p):
-        j = nirt.irf.bin_index(theta_p, self.num_bins)
-        return sum(np.log(self._irf[i, j]) if self._x[p, i] else np.log(1 - self._irf[i, j])
-                   for i in range(self.num_items))
+    def estimate(self, theta):
+        """
+        Executes a Metropolis-Hastings sweep over all variables. Since we assume each item measures a single dimension
+        (sub-scale), we loop over all theta's and all dimensions within a theta (i.e., each theta component is
+        separately updated).
 
-    def metropolis(self, p, theta_p):
-        theta_proposed = self.select_proposal(theta_p)
-        alpha = min(1, np.exp(self.person_log_likelihood(theta_proposed, p) - self.person_log_likelihood(theta_p, p)))
-        return theta_proposed if np.random.random() < alpha else theta_p
+        Args:
+            theta: array, shape=(N, C) parameter values before the sweep.
 
-    def metropolis_sweep(self, theta):
+        Returns:
+             array, shape=(N, C) parameter values after the sweep.
+        """
+
         # Loop implementation may be slow, in which case perhaps Cython can help.
-        for p, theta_p in enumerate(theta):
-            theta[p] = self.metropolis(p, theta_p)
+        for p in range(theta.shape[0]):
+            for c in range(theta.shape[1]):
+                theta[p, c] = self.metropolis_step(p, c, theta[p, c])
         return theta

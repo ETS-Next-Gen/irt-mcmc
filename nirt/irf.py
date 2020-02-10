@@ -5,10 +5,30 @@ import numpy as np
 M = 10
 
 
+class ItemResponseFunction:
+    def __init__(self, score, count):
+        self.score = score
+        self.count = count
+
+    @property
+    def probability(self):
+        return self.score / np.maximum(1e-15, self.count)
+
+    def __repr__(self):
+        return "count " + repr(self.count) + "\n"
+        + "score " + repr(self.score) + "\n"
+        + "P " + repr(self.probability) + "\n"
+
+    @staticmethod
+    def merge(irf_list):
+        return ItemResponseFunction(np.array([irf.score for irf in irf_list]),
+                                    np.array([irf.count for irf in irf_list]))
+
+
 def histogram(x, bins):
     score = np.array([sum(x[b]) for b in bins])
     count = np.array([len(x[b]) for b in bins])
-    return score, count
+    return ItemResponseFunction(score, count)
 
 
 def create_bins(theta, n):
@@ -43,3 +63,13 @@ def bin_centers(n):
     """
     h = (2 * M) / n
     return np.linspace(-M + h / 2, M - h / 2, n)
+
+
+def _augment(array):
+    if array.ndim == 1:
+        return array[None, :]
+    return array
+
+
+def _merge(a, b):
+    np.concatenate(_augment(a), _augment(b))

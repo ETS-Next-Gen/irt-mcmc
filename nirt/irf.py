@@ -24,6 +24,8 @@ class ItemResponseFunction:
         return ItemResponseFunction(np.array([irf.score for irf in irf_list]),
                                     np.array([irf.count for irf in irf_list]))
 
+    def __getitem__(self, i):
+        return ItemResponseFunction(self.score[i], self.count[i])
 
 def histogram(x, bins):
     score = np.array([sum(x[b]) for b in bins])

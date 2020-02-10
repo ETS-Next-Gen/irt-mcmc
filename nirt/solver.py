@@ -49,9 +49,9 @@ class Solver:
             logger.info("Building IRF")
             irf = nirt.irf.ItemResponseFunction.merge([nirt.irf.histogram(self.x[:, i], bins[self.c[i]]) for i in range(self.I)])
             # Improve theta estimates by Metropolis sweeps / MLE.
-            likelihood = nirt.likelihood.Likelihood(self.x, self.c, irf.probability)
-            theta_estimator = nirt.mle.MleThetaEstimator(likelihood)
-            #theta_estimator = nirt.mcmc.McmcThetaEstimator(self.x, self.c, irf.probability, temperature)
+            likelihood = nirt.likelihood.Likelihood(self.x, self.c, irf)
+            #theta_estimator = nirt.mle.MleThetaEstimator(likelihood)
+            theta_estimator = nirt.mcmc.McmcThetaEstimator(likelihood, temperature)
             logger.info("log-likelikhood {:.2f}".format(likelihood.log_likelihood(theta)))
             for sweep in range(self._num_sweeps):
                 theta = theta_estimator.estimate(theta)

@@ -32,6 +32,27 @@ class Likelihood:
                  for i in range(self._num_items) if self._c[i] == c]
         return SMALL if min(terms) < 1e-15 else sum(map(np.log, terms))
 
+    def parameter_mle(self, p, c, max_iter=2):
+        """
+        Returns the Maximum Likelihood Estimator (MLE) of a single parameter theta[p, c] (person's c-dimension
+        ability). Uses at most 'max_iter' iterations of Brent's method (bisection bracketing) for likelihood
+        maximization.
+
+        Args:
+            p: person ID.
+            c: latent dimension ID.
+            max_iter: maximum number
+
+        Returns: MLE estimator pf theta[p, c].
+
+        See also: https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.minimize_scalar.html
+        """
+        def f(theta_pc): return -self.person_log_likelihood(p, c, theta_pc)
+        result = scipy.optimize.minimize_scalar(f, method="brent", options={"maxiter": max_iter})
+        # The result struct also contains the function value, which could be useful for further MCMC steps, but
+        # for now just returning the root value.
+        return result.x
+
     def plot_irf(self, i):
         plt.figure(1)
         plt.clf()

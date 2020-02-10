@@ -4,6 +4,7 @@ import logging
 import numpy as np
 import nirt.irf
 import nirt.likelihood
+import scipy.optimize
 
 
 class McmcThetaEstimator:
@@ -32,7 +33,8 @@ class McmcThetaEstimator:
         alpha = min(1, np.exp(energy_diff / self.temperature))
         accepted = np.random.random() < alpha
         logger = logging.getLogger("metropolis_step")
-        logger.info("p {} theta_p {:.2f} proposed {:.2f} energy_diff {:.2f} = {:.2f} - {:.2f} alpha {:.2f} accepted {}".format(
+        logger.debug("p {} theta_p {:.2f} proposed {:.2f} energy_diff {:.2f} = {:.2f} - {:.2f} alpha {:.2f} accepted {"
+                 "}".format(
             p, theta_pc, theta_proposed, energy_diff, energy_proposed, energy, alpha, accepted))
         self.num_steps += 1
         self.num_accepted += accepted

@@ -1,5 +1,4 @@
 """Estimates theta given IRFs using Joint Maximum Likelihood (MLE)."""
-import logging
 import numpy as np
 import nirt.irf
 import scipy.interpolate
@@ -19,7 +18,7 @@ class MleThetaEstimator:
 
     def estimate(self, theta):
         """
-        Returns the maximum likelhood estimate of all thetas. Since we assume each item measures a single dimension
+        Returns the maximum likelihood estimate of all thetas. Since we assume each item measures a single dimension
         (sub-scale), we loop over all theta's and all dimensions within a theta (i.e., each theta component is
         separately estimated).
 

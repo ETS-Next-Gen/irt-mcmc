@@ -57,7 +57,7 @@ class Solver:
             irf = nirt.irf.ItemResponseFunction.merge(
                 [nirt.irf.histogram(self.x[:, i], bins[self.c[i]]) for i in range(self.I)])
 
-            # Improve theta estimates by Metropolis sweeps / MLE.
+            # Improve theta estimates by Metropolis sweeps.
             likelihood = nirt.likelihood.Likelihood(self.x, self.c, irf)
             theta_estimator = nirt.mcmc.McmcThetaEstimator(likelihood, temperature)
             if energy is None:

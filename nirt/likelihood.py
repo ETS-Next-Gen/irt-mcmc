@@ -5,8 +5,8 @@ import numpy as np
 import scipy.interpolate
 import scipy.optimize
 
-# Smallest allowed log-likelihood value to avoid negative infinities.
-SMALL = -100
+# Smallest allowed argument to log inside log-likelihood computations to avoid negative infinity.
+SMALL = 1e-15
 
 
 class Likelihood:
@@ -36,25 +36,34 @@ class Likelihood:
         Returns:
             log likelihood of person responses (self._x) given theta.
         """
-        return sum(self.person_log_likelihood(theta, active=active))
+        return sum(self.log_likelihood_term(theta, active=active))
 
-    def person_log_likelihood(self, theta, active=None):
+    def log_likelihood_term(self, theta, active=None):
+        """
+        Returns the log likelihood terms of person responses (self._x) given theta for an active subset of persons and
+        dimensions. This is the sum of the individual person-dimension likelihood.
+
+        Args:
+            theta: array, shape=(M,) active person latent ability parameters. This is a flattened list of all theta
+                entries for the persons and dimensions in the 'active' array.
+            active: array, shape=(M,) subscripts of active persons and subscales to calculate the likelihood over.
+                Optional, default: None. If None, all theta values are used.
+        Returns:
+            log likelihood of person responses (self._x) given theta.
+        """
         if active is None:
             active = np.unravel_index(np.arange(theta.size), theta.shape)
         # Active person responses to all items (M x I).
         x = self._x[active[0]]
-
-        C = active[1]
-
-        [x[:, i] * np.log(self._irf_func[i](theta))
-         + (1 - x[:, i]) * np.log(1 - self._irf_func[i](theta)) for i in range(self._num_items)]
-
-
-        for p, c, theta_pc in zip(active[0], active[1], theta):
-            terms = [self._irf_func[i](theta_pc) if self._x[p, i] else (1 - self._irf_func[i](theta_pc))
-                     for i in range(self._num_items) if self._c[i] == c]
-
-        return SMALL if min(terms) < 1e-15 else sum(map(np.log, terms))
+        # Evaluate the IRF for all active persons and all items first. It's a slight waste but can be vectorized into
+        # matrix shape. (Could potentially also vectorize the loop over irf_func entries if we can vectorize IRF
+        # interpolation.)
+        p = np.array([self._irf_func[i](theta) for i in range(self._num_items)]).transpose()
+        y = x * _clipped_log(p) + (1 - x) * _clipped_log(1 - p)
+        # Calculate an indicator array of whether item i measures dimension active[1][j]. Thus only items measuring
+        # the relevant dimension are taken into account in the log likelihood sum of this active person entry.
+        item_measures_dimension = (np.tile(self._c, (active[0].size, 1)) == active[1][:, None])
+        return np.sum(y * item_measures_dimension, axis=1)
 
     def parameter_mle(self, p, c, max_iter=2):
         """
@@ -71,7 +80,7 @@ class Likelihood:
 
         See also: https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.minimize_scalar.html
         """
-        def f(theta_pc): return -self.person_log_likelihood(p, c, theta_pc)
+        def f(theta_pc): return -self.log_likelihood_term(p, c, theta_pc)
         result = scipy.optimize.minimize_scalar(f, method="brent", options={"maxiter": max_iter})
         # The result struct also contains the function value, which could be useful for further MCMC steps, but
         # for now just returning the root value.
@@ -97,7 +106,7 @@ class Likelihood:
         plt.figure(1)
         plt.clf()
         t = np.linspace(-nirt.irf.M, nirt.irf.M, 10 * self.num_bins + 1)
-        likelihood = np.array([self.person_log_likelihood(p, c, x) for x in t])
+        likelihood = np.array([self.log_likelihood_term(p, c, x) for x in t])
         plt.plot(t, likelihood, 'b-')
         plt.xlabel(r'$\theta$')
         plt.ylabel(r'$\log P(\theta_{pc}|X)$')
@@ -109,3 +118,7 @@ class Likelihood:
         x = np.concatenate(([-nirt.irf.M], bin_centers[has_data], [nirt.irf.M]))
         y = np.concatenate(([0], irf.probability[i, has_data], [1]))
         return scipy.interpolate.interp1d(x, y, kind="linear", bounds_error=False, fill_value=(0, 1))
+
+
+def _clipped_log(x):
+    return np.log(np.maximum(x, SMALL))

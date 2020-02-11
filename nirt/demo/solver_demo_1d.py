@@ -25,11 +25,12 @@ if __name__ == "__main__":
     X, theta_exact, b, c = \
         nirt.simulate.simulate_data.generate_simulated_data(P, I, C, asym=asym, discrimination=discrimination)
 
-    solver = nirt.solver.Solver(X, c, sample_size=20, num_iterations=5, num_sweeps=5)
+    solver = nirt.solver.Solver(X, c, sample_size=20, num_iterations=5, num_sweeps=10)
     theta = solver.solve()
     np.set_printoptions(precision=2, linewidth=150, threshold=10000)
     error = np.linalg.norm(theta - theta_exact, axis=1)/np.linalg.norm(theta, axis=1)
     corr = np.corrcoef(np.squeeze(theta), np.squeeze(theta_exact))[0, 1]
-    print(np.concatenate((theta, theta_exact, error[:,None]), axis=1))
-    print("Relative error |t-t'|/|t| = {:.2f}".format(np.linalg.norm(theta-theta_exact)/np.linalg.norm(theta)))
-    print("correlation {:.2f}".format(corr))
+    logger = logging.getLogger("__main__")
+    #print(np.concatenate((theta, theta_exact, error[:,None]), axis=1))
+    logger.info("Relative error |t-t'|/|t| = {:.2f}".format(np.linalg.norm(theta-theta_exact)/np.linalg.norm(theta)))
+    logger.info("correlation {:.2f}".format(corr))

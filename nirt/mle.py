@@ -10,7 +10,7 @@ class MleThetaEstimator:
         self._likelihood = _likelihood
 
     def _parameter_mle(self, p, c):
-        def f(theta_pc): return -self._likelihood.person_log_likelihood(p, c, theta_pc)
+        def f(theta_pc): return -self._likelihood.log_likelihood_term(p, c, theta_pc)
         # TODO(olivne): may want to start the root search from the previous theta_c value.
         print("bracket", f(-nirt.irf.M), f(nirt.irf.M))
         return scipy.optimize.minimize_scalar(f, bracket=(-nirt.irf.M, nirt.irf.M), method="brent",

@@ -32,7 +32,7 @@ class Solver:
         logger = logging.getLogger("Solver.solve")
         theta = self.initial_guess()
         n = 10 # IRF resolution (#bins).
-        temperature = 1 # Simulated annealing temperature.
+        temperature = 0.01 # Simulated annealing temperature.
 
         # An array of indicators stating whether a person is currently being estimated.
         is_active = np.zeros((self.P, self.C), dtype=bool)
@@ -43,13 +43,13 @@ class Solver:
             is_active[np.concatenate(bin_set), c] = True
         logger.info("Sampled persons into bins of minimum size {}; sample size {}".format(
             self._sample_size, sum(len(b) for bin_set in bins for b in bin_set)))
-        theta[is_active] = self.solve_at_resolution(n, temperature, theta, is_active, bins)
+        theta[is_active] = self.solve_at_resolution(n, temperature, theta[is_active], is_active, bins)
         return theta
 
     def solve_at_resolution(self, n, temperature, theta, is_active, bins):
         logger = logging.getLogger("Solver.solve_at_resolution")
         active = np.where(is_active)
-        energy = self._likelihood.person_log_likelihood(theta, active)
+        energy = None
 
         for iteration in range(self._num_iterations):
             # Build IRFs from theta values. Assuming the same resolution for all item IRFs, so this is an I x n array.
@@ -60,6 +60,8 @@ class Solver:
             # Improve theta estimates by Metropolis sweeps / MLE.
             likelihood = nirt.likelihood.Likelihood(self.x, self.c, irf)
             theta_estimator = nirt.mcmc.McmcThetaEstimator(likelihood, temperature)
+            if energy is None:
+                energy = likelihood.log_likelihood_term(theta, active)
             logger.info("log-likelikhood {:.2f}".format(sum(energy)))
             for sweep in range(self._num_sweeps):
                 theta, energy = theta_estimator.estimate(theta, active=active, energy=energy)

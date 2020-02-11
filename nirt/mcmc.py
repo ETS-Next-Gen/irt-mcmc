@@ -48,9 +48,9 @@ class McmcThetaEstimator:
         if active is None:
             active = np.arange(num_persons, dtype=int)
         theta_proposed = self.select_proposal(theta)
-        energy_proposed = self._likelihood.person_log_likelihood(theta_proposed, active)
+        energy_proposed = self._likelihood.log_likelihood_term(theta_proposed, active)
         if energy is None:
-            energy = self._likelihood.person_log_likelihood(theta)
+            energy = self._likelihood.log_likelihood_term(theta)
         energy_diff = energy_proposed - energy
         alpha = np.minimum(1, np.exp(energy_diff / self.temperature))
         accepted = np.random.random(num_persons) < alpha

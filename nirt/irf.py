@@ -27,6 +27,7 @@ class ItemResponseFunction:
     def __getitem__(self, i):
         return ItemResponseFunction(self.score[i], self.count[i])
 
+
 def histogram(x, bins):
     score = np.array([sum(x[b]) for b in bins])
     count = np.array([len(x[b]) for b in bins])

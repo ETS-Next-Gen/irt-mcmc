@@ -2,7 +2,6 @@
 import logging
 import nirt.irf
 import nirt.likelihood
-import nirt.mle
 import nirt.mcmc
 import numpy as np
 
@@ -30,31 +29,39 @@ class Solver:
         return (x_of_dim - population_mean) / population_std
 
     def solve(self):
-        # IRF resolution (#bins).
-        n = 10
-        # Simulated annealing temperature.
-        temperature = 1
         logger = logging.getLogger("Solver.solve")
         theta = self.initial_guess()
-        return self.solve_at_resolution(n, temperature, theta)
+        n = 10 # IRF resolution (#bins).
+        temperature = 1 # Simulated annealing temperature.
 
-    def solve_at_resolution(self, n, temperature, theta):
-        logger = logging.getLogger("Solver.solve_at_resolution")
+        # An array of indicators stating whether a person is currently being estimated.
+        is_active = np.zeros((self.P, self.C), dtype=bool)
         # For each dimension, bin persons by theta values into n bins so that there are at most sample_size in each bin.
         bins = [nirt.irf.sample_bins(theta[:, c], n, self._sample_size) for c in range(self.C)]
+        # Mark persons in the bins as active.
+        for c, bin_set in enumerate(bins):
+            is_active[np.concatenate(bin_set), c] = True
         logger.info("Sampled persons into bins of minimum size {}; sample size {}".format(
-            self._sample_size, sum(len(bin) for bin_set in bins for bin in bin_set)))
+            self._sample_size, sum(len(b) for bin_set in bins for b in bin_set)))
+        theta = self.solve_at_resolution(n, temperature, theta, is_active, bins)
+        return theta
+
+    def solve_at_resolution(self, n, temperature, theta, is_active, bins):
+        logger = logging.getLogger("Solver.solve_at_resolution")
         for iteration in range(self._num_iterations):
             # Build IRFs from theta values. Assuming the same resolution for all item IRFs, so this is an I x n array.
             logger.info("Building IRF")
-            irf = nirt.irf.ItemResponseFunction.merge([nirt.irf.histogram(self.x[:, i], bins[self.c[i]]) for i in range(self.I)])
+            irf = nirt.irf.ItemResponseFunction.merge(
+                [nirt.irf.histogram(self.x[:, i], bins[self.c[i]]) for i in range(self.I)])
             # Improve theta estimates by Metropolis sweeps / MLE.
             likelihood = nirt.likelihood.Likelihood(self.x, self.c, irf)
-            #theta_estimator = nirt.mle.MleThetaEstimator(likelihood)
             theta_estimator = nirt.mcmc.McmcThetaEstimator(likelihood, temperature)
-            logger.info("log-likelikhood {:.2f}".format(likelihood.log_likelihood(theta)))
+            active = np.where(is_active)
+            theta_old = theta[is_active]
+            logger.info("log-likelikhood {:.2f}".format(likelihood.log_likelihood(theta_old, active)))
             for sweep in range(self._num_sweeps):
-                theta = theta_estimator.estimate(theta)
+                theta[is_active] = theta_estimator.estimate(theta_old, active)
                 logger.info("MCMC sweep {:2d} log-likelikhood {:.4f} accepted {:.2f}%".format(
-                    sweep, likelihood.log_likelihood(theta), 100 * theta_estimator.acceptance_fraction))
+                    sweep, likelihood.log_likelihood(theta[is_active], active),
+                    100 * theta_estimator.acceptance_fraction))
         return theta

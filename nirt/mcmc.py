@@ -40,21 +40,21 @@ class McmcThetaEstimator:
         self.num_accepted += accepted
         return theta_proposed if accepted else theta_pc
 
-    def estimate(self, theta):
+    def estimate(self, theta, active=None):
         """
         Executes a Metropolis-Hastings sweep over all variables. Since we assume each item measures a single dimension
         (sub-scale), we loop over all theta's and all dimensions within a theta (i.e., each theta component is
         separately updated).
 
         Args:
-            theta: array, shape=(N, C) parameter values before the sweep.
-
+            theta: array, shape=(M,) active person latent ability parameters. This is a flattened list of all theta
+                entries for the persons and dimensions in the 'active' array.
+            active: array, shape=(M,) subscripts of active persons and subscales to calculate the likelihood over.
+                Optional, default: None. If None, all theta values are used.
         Returns:
-             array, shape=(N, C) parameter values after the sweep.
+             array, shape=(M,) active person parameter values after the sweep.
         """
-
-        # Loop implementation may be slow, in which case perhaps Cython can help.
-        for p in range(theta.shape[0]):
-            for c in range(theta.shape[1]):
-                theta[p, c] = self.metropolis_step(p, c, theta[p, c])
-        return theta
+        if active is None:
+            active = np.arange(theta.shape[0], dtype=int)
+        # Loop implementation may be slow and can be parallelized. Cython/parallel/numpy vectorization can help.
+        return np.array([self.metropolis_step(p, c, theta_pc) for p, c, theta_pc in zip(active[0], active[1], theta)])

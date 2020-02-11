@@ -23,9 +23,20 @@ class Likelihood:
         bin_centers = nirt.irf.bin_centers(self.num_bins)
         self._irf_func = [Likelihood._irf_interpolant(bin_centers, irf, i) for i in range(self._num_items)]
 
-    def log_likelihood(self, theta):
-        return sum(self.person_log_likelihood(p, c, theta_p[c])
-                   for p, theta_p in enumerate(theta) for c in range(theta.shape[1]))
+    def log_likelihood(self, theta, active=None):
+        """
+
+        Args:
+            theta: array, shape=(M,) active person latent ability parameters. This is a flattened list of all theta
+                entries for the persons and dimensions in the 'active' array.
+            active: array, shape=(M,) subscripts of active persons and subscales to calculate the likelihood over.
+                Optional, default: None. If None, all theta values are used.
+        Returns:
+            log likelihood of person responses (self._x) given theta.
+        """
+        if active is None:
+            active = np.unravel_index(np.arange(theta.size), theta.shape)
+        return sum(self.person_log_likelihood(p, c, theta_pc) for p, c, theta_pc in zip(active[0], active[1], theta))
 
     def person_log_likelihood(self, p, c, theta_pc):
         terms = [self._irf_func[i](theta_pc) if self._x[p, i] else (1 - self._irf_func[i](theta_pc))

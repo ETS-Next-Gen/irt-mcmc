@@ -43,25 +43,27 @@ class Solver:
             is_active[np.concatenate(bin_set), c] = True
         logger.info("Sampled persons into bins of minimum size {}; sample size {}".format(
             self._sample_size, sum(len(b) for bin_set in bins for b in bin_set)))
-        theta = self.solve_at_resolution(n, temperature, theta, is_active, bins)
+        theta[is_active] = self.solve_at_resolution(n, temperature, theta, is_active, bins)
         return theta
 
     def solve_at_resolution(self, n, temperature, theta, is_active, bins):
         logger = logging.getLogger("Solver.solve_at_resolution")
+        active = np.where(is_active)
+        energy = self._likelihood.person_log_likelihood(theta, active)
+
         for iteration in range(self._num_iterations):
             # Build IRFs from theta values. Assuming the same resolution for all item IRFs, so this is an I x n array.
             logger.info("Building IRF")
             irf = nirt.irf.ItemResponseFunction.merge(
                 [nirt.irf.histogram(self.x[:, i], bins[self.c[i]]) for i in range(self.I)])
+
             # Improve theta estimates by Metropolis sweeps / MLE.
             likelihood = nirt.likelihood.Likelihood(self.x, self.c, irf)
             theta_estimator = nirt.mcmc.McmcThetaEstimator(likelihood, temperature)
-            active = np.where(is_active)
-            theta_old = theta[is_active]
-            logger.info("log-likelikhood {:.2f}".format(likelihood.log_likelihood(theta_old, active)))
+            logger.info("log-likelikhood {:.2f}".format(sum(energy)))
             for sweep in range(self._num_sweeps):
-                theta[is_active] = theta_estimator.estimate(theta_old, active)
+                theta, energy = theta_estimator.estimate(theta, active=active, energy=energy)
                 logger.info("MCMC sweep {:2d} log-likelikhood {:.4f} accepted {:.2f}%".format(
-                    sweep, likelihood.log_likelihood(theta[is_active], active),
-                    100 * theta_estimator.acceptance_fraction))
+                    sweep, sum(energy), 100 * theta_estimator.acceptance_fraction))
+
         return theta

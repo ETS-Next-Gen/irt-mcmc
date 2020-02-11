@@ -25,6 +25,8 @@ class Likelihood:
 
     def log_likelihood(self, theta, active=None):
         """
+        Returns the log likelihood of person responses (self._x) given theta for an active subset of persons and
+        dimensions. This is the sum of the individual person-dimension likelihood.
 
         Args:
             theta: array, shape=(M,) active person latent ability parameters. This is a flattened list of all theta
@@ -34,13 +36,24 @@ class Likelihood:
         Returns:
             log likelihood of person responses (self._x) given theta.
         """
+        return sum(self.person_log_likelihood(theta, active=active))
+
+    def person_log_likelihood(self, theta, active=None):
         if active is None:
             active = np.unravel_index(np.arange(theta.size), theta.shape)
-        return sum(self.person_log_likelihood(p, c, theta_pc) for p, c, theta_pc in zip(active[0], active[1], theta))
+        # Active person responses to all items (M x I).
+        x = self._x[active[0]]
 
-    def person_log_likelihood(self, p, c, theta_pc):
-        terms = [self._irf_func[i](theta_pc) if self._x[p, i] else (1 - self._irf_func[i](theta_pc))
-                 for i in range(self._num_items) if self._c[i] == c]
+        C = active[1]
+
+        [x[:, i] * np.log(self._irf_func[i](theta))
+         + (1 - x[:, i]) * np.log(1 - self._irf_func[i](theta)) for i in range(self._num_items)]
+
+
+        for p, c, theta_pc in zip(active[0], active[1], theta):
+            terms = [self._irf_func[i](theta_pc) if self._x[p, i] else (1 - self._irf_func[i](theta_pc))
+                     for i in range(self._num_items) if self._c[i] == c]
+
         return SMALL if min(terms) < 1e-15 else sum(map(np.log, terms))
 
     def parameter_mle(self, p, c, max_iter=2):

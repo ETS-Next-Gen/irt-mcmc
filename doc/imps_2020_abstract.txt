@@ -1,0 +1,8 @@
+Title: Fast MCMC estimation algorithm for non-parametric item response theory models
+
+Abstract:
+Item Response Theory (IRT) models estimate both student latent abilities and item parameters given student responses to items. One popular approach is to assume that the Item Response Function (IRF) has a specific shape (e.g., Rasch; 2PL), and that the latent ability distribution has an apriori known parametric form, and the parameters are estimated by an expectation maximization or gradient descent method. This leads to severe computational slowness for large data sets such as the National Assessment of Educational Progress (NAEP), and potential biases due to the specific parametric forms chosen and the need to estimate student and population abilities from the posterior distribution.
+
+We propose a Non-parametric IRT (NIRT) formulation in which numerical IRFs and student abilities are directly estimated using Markov Chain Monte-Carlo (MCMC). MCMC has already been applied to IRT models, but can also slow down for large problems. We present a fast MCMC algorithm that alternates between latent ability estimation and IRF updates. We superimpose a simulated annealing strategy, and simultaneously gradually refine the IRF resolution. This boosts computational efficiency and ensures that the initial guess is more likely to be near the global maximum likelihood solution, and remains in that neighborhood of the solution space throughout the optimization process.
+
+We present results for simulated data and a large real data set.

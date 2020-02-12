@@ -10,7 +10,6 @@ class TestSolver(unittest.TestCase):
     def setUp(self) -> None:
         for handler in logging.root.handlers[:]: logging.root.removeHandler(handler)
         logging.basicConfig(level=logging.WARN, format="%(levelname)-8s %(message)s", datefmt="%a, %d %b %Y %H:%M:%S")
-
         np.random.seed(0)
 
         # Number of persons.

@@ -7,7 +7,7 @@ import numpy as np
 import unittest
 
 
-class TestMcmc(unittest.TestCase):
+class TestLikelihood(unittest.TestCase):
 
     def setUp(self) -> None:
         for handler in logging.root.handlers[:]: logging.root.removeHandler(handler)
@@ -16,7 +16,7 @@ class TestMcmc(unittest.TestCase):
         np.random.seed(0)
 
         # Number of persons.
-        self.P = 100
+        self.P = 10
         # Number of items.
         self.I = 20
         # Number of latent ability dimensions (sub-scales).
@@ -25,39 +25,29 @@ class TestMcmc(unittest.TestCase):
         self.x, self.theta, self.b, self.c = \
             nirt.simulate.simulate_data.generate_simulated_data(self.P, self.I, self.C, asym=0, discrimination=1)
 
-    def test_mcmc_with_indicator_small_temperature_decreases_likelihood(self):
-        theta = self._initial_guess()
-        n = 10  # IRF resolution (#bins).
+    def test_parameter_mle_maximizes_likelihood(self):
+        # Build an IRF from some reasonable theta values.
+        num_bins = 10
         sample_size = 20
-        temperature = 0.01  # Simulated annealing temperature.
+        theta = self._initial_guess()
+        bins = nirt.irf.sample_bins(theta[:, 0], num_bins, sample_size)
+        irf = nirt.irf.ItemResponseFunction.merge([nirt.irf.histogram(self.x[:, i], bins) for i in range(self.I)])
 
-        # For each dimension, bin persons by theta values into n bins so that there are at most sample_size in each bin.
-        bins = [nirt.irf.sample_bins(theta[:, c], n, sample_size) for c in range(self.C)]
-
-        # An array of indicators stating whether a person is currently being estimated.
-        is_active = np.zeros((self.P, self.C), dtype=bool)
-        for c, bin_set in enumerate(bins):
-            is_active[np.concatenate(bin_set), c] = True
-        active = np.where(is_active)
-        theta = self.theta[is_active]
-
-        irf = nirt.irf.ItemResponseFunction.merge(
-            [nirt.irf.histogram(self.x[:, i], bins[self.c[i]]) for i in range(self.I)])
         likelihood = nirt.likelihood.Likelihood(self.x, self.c, irf)
+        for p in [1]: #range(self.P):
+            c = 1 # np.random.choice(np.arange(self.C), 1)[0]
+            # See that we can find this minimum with a root finder.
+            t = likelihood.parameter_mle(p, c)
 
-        # Run Metropolis sweeps and see if likelihood decreases before arriving at the stationary distribution.
-        energy = likelihood.log_likelihood_term(theta, active)
-        theta_estimator = nirt.mcmc.McmcThetaEstimator(likelihood, temperature)
-        likelihood = sum(energy)
-        num_sweeps = 10
-        for sweep in range(num_sweeps):
-            likelihood_old = likelihood
-            theta, energy = theta_estimator.estimate(theta, active=active, energy=energy)
-            likelihood = sum(energy)
-            assert likelihood > likelihood_old, \
-                "MCMC sweep decreased likelihood from {} to {}".format(likelihood_old, likelihood)
-            assert 0.5 < theta_estimator.acceptance_fraction < 0.7, \
-                "Metropolis acceptance should be around 0.5 but was {}".format(theta_estimator.acceptance_fraction)
+            grid = np.linspace(-nirt.irf.M, nirt.irf.M, 10 * num_bins + 1)
+            active = np.tile([p, c], (grid.size, 1))
+            likelihood_values = likelihood.log_likelihood_term(grid, active=(active[:, 0], active[:, 1]))
+            mle = likelihood.log_likelihood_term(t, (np.array([p]), np.array([c])))[0]
+            print(list(grid))
+            print(list(likelihood_values))
+            print(t, mle)
+            assert mle > max(likelihood_values) - 2, "MLE likelihood {} < max likelihood value on a grid {}".format(
+                mle, max(likelihood_values))
 
     def _initial_guess(self):
         """Returns the initial guess for theta."""

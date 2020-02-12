@@ -31,8 +31,8 @@ class Solver:
     def solve(self):
         logger = logging.getLogger("Solver.solve")
         theta = self.initial_guess()
-        n = 10 # IRF resolution (#bins).
-        temperature = 0.01 # Simulated annealing temperature.
+        n = 10  # IRF resolution (#bins).
+        temperature = 0.01  # Simulated annealing temperature.
 
         # An array of indicators stating whether a person is currently being estimated.
         is_active = np.zeros((self.P, self.C), dtype=bool)

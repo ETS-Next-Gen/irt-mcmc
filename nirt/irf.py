@@ -42,7 +42,8 @@ def create_bins(theta, n):
 
 def sample_bins(theta, n, sample_size):
     theta_bins = create_bins(theta, n)
-    return np.array([np.random.choice(b, sample_size) if len(b) else np.array([], dtype=np.int64) for b in theta_bins])
+    return np.array([np.random.choice(b, min(len(b), sample_size), replace=False)
+                     if len(b) else np.array([], dtype=np.int64) for b in theta_bins])
 
 
 def bin_index(theta, n):

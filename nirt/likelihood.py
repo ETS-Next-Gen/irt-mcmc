@@ -6,7 +6,7 @@ import scipy.interpolate
 import scipy.optimize
 
 # Smallest allowed argument to log inside log-likelihood computations to avoid negative infinity.
-SMALL = 1e-15
+SMALL = 1e-30
 
 
 class Likelihood:
@@ -65,7 +65,7 @@ class Likelihood:
         item_measures_dimension = (np.tile(self._c, (active[0].size, 1)) == active[1][:, None])
         return np.sum(y * item_measures_dimension, axis=1)
 
-    def parameter_mle(self, p, c, max_iter=2):
+    def parameter_mle(self, p, c, max_iter=10):
         """
         Returns the Maximum Likelihood Estimator (MLE) of a single parameter theta[p, c] (person's c-dimension
         ability). Uses at most 'max_iter' iterations of Brent's method (bisection bracketing) for likelihood
@@ -80,7 +80,8 @@ class Likelihood:
 
         See also: https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.minimize_scalar.html
         """
-        def f(theta_pc): return -self.log_likelihood_term(p, c, theta_pc)
+        active = (np.array([p]), np.array([c]))
+        def f(theta_pc): return -self.log_likelihood_term(theta_pc, active=active)
         result = scipy.optimize.minimize_scalar(f, method="brent", options={"maxiter": max_iter})
         # The result struct also contains the function value, which could be useful for further MCMC steps, but
         # for now just returning the root value.
@@ -106,7 +107,8 @@ class Likelihood:
         plt.figure(1)
         plt.clf()
         t = np.linspace(-nirt.irf.M, nirt.irf.M, 10 * self.num_bins + 1)
-        likelihood = np.array([self.log_likelihood_term(p, c, x) for x in t])
+        active = np.tile([p, c], (t.size, 1))
+        likelihood = self.log_likelihood_term(t, active=(active[:, 0], active[:, 1]))
         plt.plot(t, likelihood, 'b-')
         plt.xlabel(r'$\theta$')
         plt.ylabel(r'$\log P(\theta_{pc}|X)$')

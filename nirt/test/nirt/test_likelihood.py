@@ -17,7 +17,7 @@ class TestLikelihood(unittest.TestCase):
         np.random.seed(0)
 
         # Number of persons.
-        self.P = 1000
+        self.P = 100
         # Number of items.
         self.I = 20
         # Number of latent ability dimensions (sub-scales).
@@ -32,7 +32,7 @@ class TestLikelihood(unittest.TestCase):
         sample_size = 20
         theta = nirt.likelihood.initial_guess(self.x, self.c)
         c = 0
-        sample = np.random.choice(np.arange(self.P, dtype=int), size=sample_size * num_bins, replace=False)
+        sample = np.random.choice(np.arange(self.P, dtype=int), size=min(self.P, sample_size * num_bins), replace=False)
         grid = [nirt.grid.Grid(theta[sample, c], num_bins) for c in range(self.C)]
         irf = [nirt.irf.ItemResponseFunction(grid[self.c[i]], self.x[:, i]) for i in range(self.I)]
 
@@ -44,12 +44,10 @@ class TestLikelihood(unittest.TestCase):
             t = np.linspace(x[0], x[-1], 10 * len(x) + 1)
             active = np.tile([p, c], (len(t), 1))
             likelihood_values = likelihood.log_likelihood_term(t, active=(active[:, 0], active[:, 1]))
-            print('p', p, theta.shape, active.shape)
-            print(likelihood_values.shape)
 
-            # Verify that we can find the LL maximum with a root finder.
-            t_mle = likelihood.parameter_mle(p, c, max_iter=2)
+            # Verify that we can find the LL maximum with a root finder if we run it with enough iterations.
+            t_mle = likelihood.parameter_mle(p, c, max_iter=8)
             likelihood_mle = likelihood.log_likelihood_term(t_mle, (np.array([p]), np.array([c])))[0]
-            print(t_mle, likelihood_mle)
-            assert likelihood_mle > max(likelihood_values) - 2, "MLE likelihood {} < max likelihood value on a grid {}".format(
-                likelihood_mle, max(likelihood_values))
+            assert likelihood_mle > max(likelihood_values) - 0.2, \
+                "MLE likelihood {} < max likelihood value on a grid {} at p = {}".format(
+                    likelihood_mle, max(likelihood_values), p)

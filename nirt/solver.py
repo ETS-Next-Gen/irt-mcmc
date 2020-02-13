@@ -19,18 +19,9 @@ class Solver:
         # Number of item classes. Assumes 'item_classification' contain integers in [0..C-1].
         self.C = max(item_classification) + 1
 
-    def initial_guess(self):
-        """Returns the initial guess for theta."""
-        # Person means for each subscale (dimension): P x C
-        x_of_dim = np.array([np.mean(self.x[:, np.where(self.c == d)[0]], axis=1) for d in range(self.C)]).transpose()
-        # Population mean and stddev of each dimension.
-        population_mean = x_of_dim.mean(axis=0)
-        population_std = x_of_dim.std(axis=0)
-        return (x_of_dim - population_mean) / population_std
-
     def solve(self):
         logger = logging.getLogger("Solver.solve")
-        theta = self.initial_guess()
+        theta = nirt.likelihood.initial_guess(self.x, self.c)
         n = 10  # IRF resolution (#bins).
         temperature = 0.01  # Simulated annealing temperature.
 

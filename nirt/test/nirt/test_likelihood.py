@@ -1,5 +1,6 @@
 import logging
 import nirt.irf
+import nirt.grid
 import nirt.mcmc
 import nirt.simulate.simulate_data
 import nirt.solver
@@ -16,11 +17,11 @@ class TestLikelihood(unittest.TestCase):
         np.random.seed(0)
 
         # Number of persons.
-        self.P = 10
+        self.P = 1000
         # Number of items.
         self.I = 20
         # Number of latent ability dimensions (sub-scales).
-        self.C = 5
+        self.C = 1
         # Using 2-PL model with fixed discrimination and no asymptote for all items.
         self.x, self.theta, self.b, self.c = \
             nirt.simulate.simulate_data.generate_simulated_data(self.P, self.I, self.C, asym=0, discrimination=1)
@@ -29,31 +30,26 @@ class TestLikelihood(unittest.TestCase):
         # Build an IRF from some reasonable theta values.
         num_bins = 10
         sample_size = 20
-        theta = self._initial_guess()
-        bins = nirt.irf.sample_bins(theta[:, 0], num_bins, sample_size)
-        irf = nirt.irf.ItemResponseFunction.merge([nirt.irf.histogram(self.x[:, i], bins) for i in range(self.I)])
+        theta = nirt.likelihood.initial_guess(self.x, self.c)
+        c = 0
+        sample = np.random.choice(np.arange(self.P, dtype=int), size=sample_size * num_bins, replace=False)
+        grid = [nirt.grid.Grid(theta[sample, c], num_bins) for c in range(self.C)]
+        irf = [nirt.irf.ItemResponseFunction(grid[self.c[i]], self.x[:, i]) for i in range(self.I)]
 
         likelihood = nirt.likelihood.Likelihood(self.x, self.c, irf)
-        for p in [1]: #range(self.P):
-            c = 1 # np.random.choice(np.arange(self.C), 1)[0]
-            # See that we can find this minimum with a root finder.
-            t = likelihood.parameter_mle(p, c)
 
-            grid = np.linspace(-nirt.irf.M, nirt.irf.M, 10 * num_bins + 1)
-            active = np.tile([p, c], (grid.size, 1))
-            likelihood_values = likelihood.log_likelihood_term(grid, active=(active[:, 0], active[:, 1]))
-            mle = likelihood.log_likelihood_term(t, (np.array([p]), np.array([c])))[0]
-            print(list(grid))
-            print(list(likelihood_values))
-            print(t, mle)
-            assert mle > max(likelihood_values) - 2, "MLE likelihood {} < max likelihood value on a grid {}".format(
-                mle, max(likelihood_values))
+        for p in range(self.P):
+            i = np.where(self.c == c)[0][0]
+            x = irf[i].x
+            t = np.linspace(x[0], x[-1], 10 * len(x) + 1)
+            active = np.tile([p, c], (len(t), 1))
+            likelihood_values = likelihood.log_likelihood_term(t, active=(active[:, 0], active[:, 1]))
+            print('p', p, theta.shape, active.shape)
+            print(likelihood_values.shape)
 
-    def _initial_guess(self):
-        """Returns the initial guess for theta."""
-        # Person means for each subscale (dimension): P x C
-        x_of_dim = np.array([np.mean(self.x[:, np.where(self.c == d)[0]], axis=1) for d in range(self.C)]).transpose()
-        # Population mean and stddev of each dimension.
-        population_mean = x_of_dim.mean(axis=0)
-        population_std = x_of_dim.std(axis=0)
-        return (x_of_dim - population_mean) / population_std
+            # Verify that we can find the LL maximum with a root finder.
+            t_mle = likelihood.parameter_mle(p, c, max_iter=2)
+            likelihood_mle = likelihood.log_likelihood_term(t_mle, (np.array([p]), np.array([c])))[0]
+            print(t_mle, likelihood_mle)
+            assert likelihood_mle > max(likelihood_values) - 2, "MLE likelihood {} < max likelihood value on a grid {}".format(
+                likelihood_mle, max(likelihood_values))

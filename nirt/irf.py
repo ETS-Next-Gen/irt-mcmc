@@ -1,79 +1,61 @@
 """Builds non-parametric (binned) Item Response Function (IRF) from thetas."""
+import nirt.grid
+import matplotlib.pyplot as plt
 import numpy as np
-
-"""Range of item response function domain."""
-M = 10
+import scipy.interpolate
 
 
 class ItemResponseFunction:
-    def __init__(self, score, count):
-        self.score = score
-        self.count = count
+    """An Item Response Function (IRF): a numerical histogram of success on the item for a population of person latent
+    abilities. The IRF is a linear interpolant of histogram values at theta bin centers.
+
+    Attributes:
+        grid: nirt.grid.Grid, holds bins of person thetas (x-axis of discrete IRF).
+        score: array<int>, shape=(num_bins,), total score of all persons in a bin, for each bin.
+        count: array<int>, shape=(num_bins,), total count of all persons in a bin, for each bin.
+        interpolant: function, IRF interpolant.
+        x: array<float> interpolation nodes (bin center + extension points).
+        y: array<float> interpolation values.
+    """
+    def __init__(self, grid: nirt.grid.Grid, x: np.array) -> None:
+        # Calculate a simple histogram where each person contributes its full score value to its bin (generally: could
+        # distribute a person's score into several neighboring bins).
+        score = np.array([sum(x[b]) for b in grid.bin])
+        count = np.array([len(x[b]) for b in grid.bin])
+
+        # Filter empty bins. (In an adaptive quantile grid no bins should be empty, but generally this can happen.)
+        has_data = count > 0
+        self.score = score[has_data]
+        self.count = count[has_data]
+        self.grid = grid
+
+        # Create a linear interpolant from score values at bin centers. Extend IRF as 0 to the left and 1 to the right.
+        node = grid.center[has_data]
+        self.x = np.concatenate(([2 * node[0] - node[1]], node, [2 * node[-1] - node[-2]]))
+        self.y = np.concatenate(([0], self.probability, [1]))
+        self.interpolant = scipy.interpolate.interp1d(self.x, self.y, bounds_error=False, fill_value=(0, 1))
 
     @property
     def probability(self):
+        """Returns the discrete IRF values at bin centers: P(X=1|bin_center[k]), k=1,...,num_bins."""
         return self.score / np.maximum(1e-15, self.count)
 
     def __repr__(self):
-        return "count " + repr(self.count) + "\n"
-        + "score " + repr(self.score) + "\n"
-        + "P " + repr(self.probability) + "\n"
+        return "count " + repr(self.count) + "score " + repr(self.score) + "P " + repr(self.probability)
 
-    @staticmethod
-    def merge(irf_list):
-        return ItemResponseFunction(np.array([irf.score for irf in irf_list]),
-                                    np.array([irf.count for irf in irf_list]))
+    def plot(self, ax: plt.Axes, title=r"Item  Response Function", label=None) -> None:
+        """
+        Draws the IRF interpolant and interpolation nodes and values.
+        Args:
+            ax: figure axis to draw in.
+            title: str, optional, default: None. Plot title.
 
-    def __getitem__(self, i):
-        return ItemResponseFunction(self.score[i], self.count[i])
-
-
-def histogram(x, bins):
-    score = np.array([sum(x[b]) for b in bins])
-    count = np.array([len(x[b]) for b in bins])
-    return ItemResponseFunction(score, count)
-
-
-def create_bins(theta, n):
-    j = bin_index(theta, n)
-    # Inefficient implementation, but good enough for now.
-    return np.array([np.where(j == index)[0] for index in range(n)])
-
-
-def sample_bins(theta, n, sample_size):
-    theta_bins = create_bins(theta, n)
-    return np.array([np.random.choice(b, min(len(b), sample_size), replace=False)
-                     if len(b) else np.array([], dtype=np.int64) for b in theta_bins])
-
-
-def bin_index(theta, n):
-    """
-    Returns the bin index of a latent ability value 'theta'. If |theta| <= M, bins are uniformly spaced. Anything off
-    to the left is lumped into the left-most bin; similarly for the right boundary.
-
-    @param theta: person latent ability in a certain dimension.
-    @param n: number of bins
-    @return: bin index in [0..j-1].
-    """
-    theta_left, h = -M, (2 * M) / n
-    return np.minimum(np.maximum(((theta - theta_left) / h).astype(int), 0), n - 1)
-
-
-def bin_centers(n):
-    """
-    Returns an array of bin centers.
-    @param n: number of bins.
-    @return: array, shape=(n,) bin centers.
-    """
-    h = (2 * M) / n
-    return np.linspace(-M + h / 2, M - h / 2, n)
-
-
-def _augment(array):
-    if array.ndim == 1:
-        return array[None, :]
-    return array
-
-
-def _merge(a, b):
-    np.concatenate(_augment(a), _augment(b))
+        Returns: None.
+        """
+        # Draw the interpolation nodes (bin centers + extension nodes).
+        t = np.linspace(self.x[0], self.x[-1], 10 * len(self.x) + 1)
+        ax.plot(t, self.interpolant(t), "b-", label=label)
+        ax.plot(self.x, self.y, "ro")
+        ax.set_xlabel(r"$\theta$")
+        ax.set_ylabel(r"$P(X=1|\theta)$")
+        ax.set_title(title)

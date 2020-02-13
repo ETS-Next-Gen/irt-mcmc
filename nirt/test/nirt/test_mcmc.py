@@ -26,7 +26,7 @@ class TestMcmc(unittest.TestCase):
             nirt.simulate.simulate_data.generate_simulated_data(self.P, self.I, self.C, asym=0, discrimination=1)
 
     def test_mcmc_with_indicator_small_temperature_decreases_likelihood(self):
-        theta = self._initial_guess()
+        theta = nirt.likelihood.initial_guess(self.x, self.c)
         n = 10  # IRF resolution (#bins).
         sample_size = 20
         temperature = 0.01  # Simulated annealing temperature.
@@ -58,12 +58,3 @@ class TestMcmc(unittest.TestCase):
                 "MCMC sweep decreased likelihood from {} to {}".format(likelihood_old, likelihood)
             assert 0.5 < theta_estimator.acceptance_fraction < 0.7, \
                 "Metropolis acceptance should be around 0.5 but was {}".format(theta_estimator.acceptance_fraction)
-
-    def _initial_guess(self):
-        """Returns the initial guess for theta."""
-        # Person means for each subscale (dimension): P x C
-        x_of_dim = np.array([np.mean(self.x[:, np.where(self.c == d)[0]], axis=1) for d in range(self.C)]).transpose()
-        # Population mean and stddev of each dimension.
-        population_mean = x_of_dim.mean(axis=0)
-        population_std = x_of_dim.std(axis=0)
-        return (x_of_dim - population_mean) / population_std

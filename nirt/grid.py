@@ -19,7 +19,7 @@ class Grid:
         center: array<int>, shape=(N+1,), bin centers.
     """
 
-    def __init__(self, theta, num_bins):
+    def __init__(self, theta, num_bins, method="quantile"):
         """
         Creates a quantile grid.
 
@@ -29,9 +29,15 @@ class Grid:
         """
         assert num_bins >= 3
         self.num_bins = num_bins
-        self.bin_index, self.endpoint = pd.qcut(theta, num_bins, retbins=True, labels=np.arange(num_bins, dtype=int))
+        if method == "quantile":
+            self.bin_index, self.endpoint = pd.qcut(theta, num_bins, retbins=True, labels=np.arange(num_bins, dtype=int))
+        elif method == "uniform":
+            left, right = min(theta), max(theta)
+            meshsize = (right - left) / num_bins
+            self.bin_index = ((theta - left) // meshsize).astype(int)
+            self.endpoint = np.linspace(left, right, num_bins + 1)
         self.bin = np.array([np.where(self.bin_index == index)[0] for index in range(num_bins)])
-        self.center = 0.5*(self.endpoint[:-1] + self.endpoint[1:])
+        self.center = 0.5 * (self.endpoint[:-1] + self.endpoint[1:])
 
     def __repr__(self):
         return "Grid[num_bins={}, centers={}]".format(self.num_bins, self.center)

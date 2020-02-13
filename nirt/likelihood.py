@@ -13,9 +13,10 @@ class Likelihood:
     """Calculates the likelihood P(theta|X) of theta given (theta) given X. With a uniform prior, this is proportional
     to P(X|theta)."""
 
-    def __init__(self, x, item_classification, irf):
+    def __init__(self, x, item_classification, grid, irf):
         self._c = item_classification
         self._x = x
+        self._grid = grid
         self._irf = irf
 
     def log_likelihood(self, theta, active=None):
@@ -71,7 +72,7 @@ class Likelihood:
         #print("ll", ll)
         return ll
 
-    def parameter_mle(self, p, c, max_iter=10):
+    def parameter_mle(self, p: int, c: int, max_iter: int = 10) -> float:
         """
         Returns the Maximum Likelihood Estimator (MLE) of a single parameter theta[p, c] (person's c-dimension
         ability). Uses at most 'max_iter' iterations of Brent's method (bisection bracketing) for likelihood
@@ -87,13 +88,17 @@ class Likelihood:
         See also: https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.minimize_scalar.html
         """
         active = (np.array([p]), np.array([c]))
-        #print("active[0]", active[0].shape)
-        #print("active[1]", active[1].shape)
         def f(theta_pc): return -self.log_likelihood_term(np.array([theta_pc]), active=active)[0]
-        result = scipy.optimize.minimize_scalar(f, options={"maxiter": max_iter})
-        #print(result)
+
+        # The likelihood function may be non-concave but has piecewise smooth. Use a root finder in every interval,
+        # then find the minimum of all interval minima. Benchmarked to be fast (see debugging_log_likelihood notebook).
+        e = self._grid[c].endpoint
+        interval_min_result = \
+            (scipy.optimize.minimize_scalar(f, bracket=(e[j], e[j + 1]), options={"maxiter": max_iter})
+             for j in range(len(e) - 1))
         # The result struct also contains the function value, which could be useful for further MCMC steps, but
         # for now just returning the root value.
+        return min((result.fun, result.x) for result in interval_min_result)[1]
         return result.x
 
     def plot_person_log_likelihood(self, ax, p, c):

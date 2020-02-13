@@ -36,7 +36,7 @@ class TestLikelihood(unittest.TestCase):
         grid = [nirt.grid.Grid(theta[sample, c], num_bins) for c in range(self.C)]
         irf = [nirt.irf.ItemResponseFunction(grid[self.c[i]], self.x[:, i]) for i in range(self.I)]
 
-        likelihood = nirt.likelihood.Likelihood(self.x, self.c, irf)
+        likelihood = nirt.likelihood.Likelihood(self.x, self.c, grid, irf)
 
         for p in range(self.P):
             i = np.where(self.c == c)[0][0]

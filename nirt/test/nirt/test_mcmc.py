@@ -43,7 +43,7 @@ class TestMcmc(unittest.TestCase):
 
         irf = nirt.irf.ItemResponseFunction.merge(
             [nirt.irf.histogram(self.x[:, i], bins[self.c[i]]) for i in range(self.I)])
-        likelihood = nirt.likelihood.Likelihood(self.x, self.c, irf)
+        likelihood = nirt.likelihood.Likelihood(self.x, self.c, grid, irf)
 
         # Run Metropolis sweeps and see if likelihood decreases before arriving at the stationary distribution.
         energy = likelihood.log_likelihood_term(theta, active)

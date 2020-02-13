@@ -1,6 +1,5 @@
 """An adaptive grid of bins of theta values in one dimension. Instead of a uniform grid, we now use percentiles, to
 maximize and balance the sample size per bin."""
-import bisect
 import numpy as np
 import pandas as pd
 
@@ -19,18 +18,19 @@ class Grid:
         center: array<int>, shape=(N+1,), bin centers.
     """
 
-    def __init__(self, theta, num_bins, method="quantile"):
+    def __init__(self, theta, num_bins, method="uniform"):
         """
         Creates a quantile grid.
 
         Args:
-            theta: array<int>, shape=(N,) person latent abiities along a particular dimension.
+            theta: array<int>, shape=(N,) person latent abilities along a particular dimension.
             num_bins: int, number of bins (quantile intervals).
         """
         assert num_bins >= 3
         self.num_bins = num_bins
         if method == "quantile":
-            self.bin_index, self.endpoint = pd.qcut(theta, num_bins, retbins=True, labels=np.arange(num_bins, dtype=int))
+            self.bin_index, self.endpoint = \
+                pd.qcut(theta, num_bins, retbins=True, labels=np.arange(num_bins, dtype=int))
         elif method == "uniform":
             left, right = min(theta), max(theta)
             meshsize = (right - left) / num_bins

@@ -26,23 +26,22 @@ class TestMcmc(unittest.TestCase):
             nirt.simulate.simulate_data.generate_simulated_data(self.P, self.I, self.C, asym=0, discrimination=1)
 
     def test_mcmc_with_indicator_small_temperature_decreases_likelihood(self):
-        theta = nirt.likelihood.initial_guess(self.x, self.c)
-        n = 10  # IRF resolution (#bins).
-        sample_size = 20
+        num_bins = 10 # IRF resolution (#bins).
+        sample_size = 200  # Should be num_bins * (5-10)
         temperature = 0.01  # Simulated annealing temperature.
 
-        # For each dimension, bin persons by theta values into n bins so that there are at most sample_size in each bin.
-        bins = [nirt.irf.sample_bins(theta[:, c], n, sample_size) for c in range(self.C)]
+        # For each dimension, sample persons and bin them by theta value into n bins so that there are ~ sample_size
+        # person per bin.
+        active = np.random.choice(np.arange(self.P, dtype=int), size=min(self.P, sample_size), replace=False)
+        theta = nirt.likelihood.initial_guess(self.x, self.c)
+        # Build an IRF.
+        grid = [nirt.grid.Grid(theta[active, c], num_bins) for c in range(self.C)]
+        irf = [nirt.irf.ItemResponseFunction(grid[self.c[i]], self.x[:, i]) for i in range(self.I)]
 
-        # An array of indicators stating whether a person is currently being estimated.
+        # An indicator array stating whether each person is currently being estimated.
         is_active = np.zeros((self.P, self.C), dtype=bool)
-        for c, bin_set in enumerate(bins):
-            is_active[np.concatenate(bin_set), c] = True
-        active = np.where(is_active)
-        theta = self.theta[is_active]
-
-        irf = nirt.irf.ItemResponseFunction.merge(
-            [nirt.irf.histogram(self.x[:, i], bins[self.c[i]]) for i in range(self.I)])
+        is_active[active] = True
+        irf = [nirt.irf.ItemResponseFunction(grid[self.c[i]], self.x[:, i]) for i in range(self.I)]
         likelihood = nirt.likelihood.Likelihood(self.x, self.c, grid, irf)
 
         # Run Metropolis sweeps and see if likelihood decreases before arriving at the stationary distribution.

@@ -8,6 +8,9 @@ import scipy.optimize
 # Smallest allowed argument to log inside log-likelihood computations to avoid negative infinity.
 SMALL = 1e-30
 
+# Value to extend an interval negative log likelihood function outside the interval.
+_LARGE = 1e8
+
 
 class Likelihood:
     """Calculates the likelihood P(theta|X) of theta given (theta) given X. With a uniform prior, this is proportional
@@ -92,14 +95,15 @@ class Likelihood:
 
         # The likelihood function may be non-concave but has piecewise smooth. Use a root finder in every interval,
         # then find the minimum of all interval minima. Benchmarked to be fast (see debugging_log_likelihood notebook).
+        def f_interval(theta_pc, left, right): return f(theta_pc) if left < theta_pc and theta_pc < right else _LARGE
         e = self._grid[c].endpoint
         interval_min_result = \
-            (scipy.optimize.minimize_scalar(f, bracket=(e[j], e[j + 1]), options={"maxiter": max_iter})
+            (scipy.optimize.minimize_scalar(f, method="bounded", bounds=(e[j], e[j + 1]), bracket=(e[j], e[j + 1]),
+                                            options={"maxiter": max_iter})
              for j in range(len(e) - 1))
         # The result struct also contains the function value, which could be useful for further MCMC steps, but
         # for now just returning the root value.
         return min((result.fun, result.x) for result in interval_min_result)[1]
-        return result.x
 
     def plot_person_log_likelihood(self, ax, p, c):
         # Get x-axis from the grid of one of the items measuring dimension c.

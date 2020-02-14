@@ -14,11 +14,13 @@ class Grid:
         bin_index: array<int>, shape=(N,) bin index of each person.
         bin: array<array<int>>, shape=(num_bins,) list of bins, each of which is the list of person indices in that
             bin.
+        method: str, optional, default: "quantile". binning strategy. "quantile" = equal bins (theta quantiles).
+        "uniform" = uniform spacing in theta.
         endpoint: array<int>, shape=(N+1,), bin endpoints.
         center: array<int>, shape=(N+1,), bin centers.
     """
 
-    def __init__(self, theta, num_bins, method="uniform"):
+    def __init__(self, theta: np.array, num_bins: int, method: str = "quantile") -> None:
         """
         Creates a quantile grid.
 
@@ -39,5 +41,5 @@ class Grid:
         self.bin = np.array([np.where(self.bin_index == index)[0] for index in range(num_bins)])
         self.center = 0.5 * (self.endpoint[:-1] + self.endpoint[1:])
 
-    def __repr__(self):
+    def __repr__(self) -> None:
         return "Grid[num_bins={}, centers={}]".format(self.num_bins, self.center)

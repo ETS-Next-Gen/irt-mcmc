@@ -29,16 +29,16 @@ class TestLikelihood(unittest.TestCase):
     def test_parameter_mle_maximizes_likelihood(self):
         # Build an IRF from some reasonable theta values.
         num_bins = 10
-        sample_size = 20
+        sample_size = 200  # Should be num_bins * (5-10)
         theta = nirt.likelihood.initial_guess(self.x, self.c)
         c = 0
-        sample = np.random.choice(np.arange(self.P, dtype=int), size=min(self.P, sample_size * num_bins), replace=False)
-        grid = [nirt.grid.Grid(theta[sample, c], num_bins) for c in range(self.C)]
+        active = np.random.choice(np.arange(self.P, dtype=int), size=min(self.P, sample_size), replace=False)
+        grid = [nirt.grid.Grid(theta[active, c], num_bins) for c in range(self.C)]
         irf = [nirt.irf.ItemResponseFunction(grid[self.c[i]], self.x[:, i]) for i in range(self.I)]
 
         likelihood = nirt.likelihood.Likelihood(self.x, self.c, grid, irf)
 
-        for p in range(self.P):
+        for p in [38]: #range(self.P):
             i = np.where(self.c == c)[0][0]
             x = irf[i].x
             t = np.linspace(x[0], x[-1], 10 * len(x) + 1)
@@ -46,8 +46,8 @@ class TestLikelihood(unittest.TestCase):
             likelihood_values = likelihood.log_likelihood_term(t, active=(active[:, 0], active[:, 1]))
 
             # Verify that we can find the LL maximum with a root finder if we run it with enough iterations.
-            t_mle = likelihood.parameter_mle(p, c, max_iter=8)
+            t_mle = likelihood.parameter_mle(p, c, max_iter=5)
             likelihood_mle = likelihood.log_likelihood_term(t_mle, (np.array([p]), np.array([c])))[0]
-            assert likelihood_mle > max(likelihood_values) - 0.2, \
+            assert likelihood_mle > max(likelihood_values) - 0.001, \
                 "MLE likelihood {} < max likelihood value on a grid {} at p = {}".format(
                     likelihood_mle, max(likelihood_values), p)

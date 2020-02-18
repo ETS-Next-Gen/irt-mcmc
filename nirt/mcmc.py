@@ -2,13 +2,14 @@
 estimator for theta."""
 import logging
 import numpy as np
-import nirt.irf
 import nirt.likelihood
 from typing import Tuple
 
 
 class McmcThetaEstimator:
-    def __init__(self, likelihood, temperature):
+    """Estimates theta given IRFs using Monte Carlo Markov Chain (MCMC) simulation to approximate the maximum likelihood
+    estimator for theta"""
+    def __init__(self, likelihood: nirt.likelihood.Likelihood, temperature: float) -> None:
         self._likelihood = likelihood
         self.temperature = temperature
         # Standard deviation of proposal steps = average bin size in that dimension.
@@ -17,10 +18,12 @@ class McmcThetaEstimator:
         self.num_steps = 0
 
     @property
-    def acceptance_fraction(self):
+    def acceptance_fraction(self) -> float:
+        """Returns the Metropolis acceptance fraction over all steps performed to date."""
         return self.num_accepted / self.num_steps
 
-    def estimate(self, theta: np.array, active: Tuple[np.array] = None, energy: np.array = None) -> Tuple[np.array]:
+    def estimate(self, theta: np.array, active: Tuple[np.array] = None, energy: np.array = None) -> \
+            Tuple[np.array, np.array]:
         """
         Executes a Metropolis-Hastings sweep over all variables. Since we assume each item measures a single dimension
         (sub-scale), we loop over all theta's and all dimensions within a theta (i.e., each theta component is
@@ -38,7 +41,6 @@ class McmcThetaEstimator:
              energy_new: array, shape=(M,) array of person likelihoods fo all values in theta.
         """
         # Since the likelihood is separable, all theta entry updates are done in parallel using numpy vectorization.
-        num_persons = theta.shape[0]
         if active is None:
             active = np.unravel_index(np.arange(theta.size), theta.shape)
         theta_proposed = self._select_proposal(theta, active[1])
@@ -46,15 +48,17 @@ class McmcThetaEstimator:
         if energy is None:
             energy = self._likelihood.log_likelihood_term(theta)
         energy_diff = energy_proposed - energy
-        alpha = np.minimum(1, np.exp(energy_diff / self.temperature))
+        alpha = np.minimum(1, np.exp(np.minimum(500, energy_diff / self.temperature)))
         accepted = np.random.random(len(theta)) < alpha
         logger = logging.getLogger("metropolis_step")
-        if logger.level == logging.DEBUG:
-            for p, c, t, t_proposed, e, e_proposed, de, a in zip(active[0], active[1], theta, theta_proposed, energy,
-                                                              energy_proposed, energy_diff, accepted):
+        if logger.level >= logging.DEBUG:
+            # noinspection PyTypeChecker
+            for p, c, t, t_proposed, e, e_proposed, de, a in \
+                    zip(active[0], active[1], theta, theta_proposed, energy, energy_proposed, energy_diff, accepted):
                 logger.debug("p {} theta_p {:.2f} proposed {:.2f} energy_diff {:.2f} = {:.2f} - {:.2f} alpha {:.2f} "
                              "accepted {}".format(p, t, t_proposed, de, e_proposed, e, alpha, accepted))
         self.num_steps += theta.size
+        # noinspection PyTypeChecker
         self.num_accepted += sum(accepted)
         theta[accepted] = theta_proposed[accepted]
         energy[accepted] = energy_proposed[accepted]

@@ -19,7 +19,7 @@ class Likelihood:
     def __init__(self, x, item_classification, grid, irf):
         self._c = item_classification
         self._x = x
-        self._grid = grid
+        self.grid = grid
         self._irf = irf
 
     def log_likelihood(self, theta, active=None):
@@ -96,7 +96,7 @@ class Likelihood:
         # The likelihood function may be non-concave but has piecewise smooth. Use a root finder in every interval,
         # then find the minimum of all interval minima. Benchmarked to be fast (see debugging_log_likelihood notebook).
         def f_interval(theta_pc, left, right): return f(theta_pc) if left < theta_pc and theta_pc < right else _LARGE
-        e = self._grid[c].endpoint
+        e = self.grid[c].endpoint
         interval_min_result = \
             (scipy.optimize.minimize_scalar(f, method="bounded", bounds=(e[j], e[j + 1]), bracket=(e[j], e[j + 1]),
                                             options={"maxiter": max_iter})

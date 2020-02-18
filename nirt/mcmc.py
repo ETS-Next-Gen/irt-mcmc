@@ -11,20 +11,14 @@ class McmcThetaEstimator:
     def __init__(self, likelihood, temperature):
         self._likelihood = likelihood
         self.temperature = temperature
+        # Standard deviation of proposal steps = average bin size in that dimension.
+        self._proposal_std = np.array([(g.range[1] - g.range[0]) / g.num_bins for g in likelihood.grid])
         self.num_accepted = 0
         self.num_steps = 0
 
     @property
     def acceptance_fraction(self):
         return self.num_accepted / self.num_steps
-
-    @property
-    def meshsize(self):
-        return (2 * nirt.irf.M) / self._likelihood.num_bins
-
-    def select_proposal(self, theta):
-        stddev = self.meshsize / 8
-        return np.array([np.random.normal(t, stddev, 1)[0] for t in theta])
 
     def estimate(self, theta: np.array, active: Tuple[np.array] = None, energy: np.array = None) -> Tuple[np.array]:
         """
@@ -46,14 +40,14 @@ class McmcThetaEstimator:
         # Since the likelihood is separable, all theta entry updates are done in parallel using numpy vectorization.
         num_persons = theta.shape[0]
         if active is None:
-            active = np.arange(num_persons, dtype=int)
-        theta_proposed = self.select_proposal(theta)
+            active = np.unravel_index(np.arange(theta.size), theta.shape)
+        theta_proposed = self._select_proposal(theta, active[1])
         energy_proposed = self._likelihood.log_likelihood_term(theta_proposed, active)
         if energy is None:
             energy = self._likelihood.log_likelihood_term(theta)
         energy_diff = energy_proposed - energy
         alpha = np.minimum(1, np.exp(energy_diff / self.temperature))
-        accepted = np.random.random(num_persons) < alpha
+        accepted = np.random.random(len(theta)) < alpha
         logger = logging.getLogger("metropolis_step")
         if logger.level == logging.DEBUG:
             for p, c, t, t_proposed, e, e_proposed, de, a in zip(active[0], active[1], theta, theta_proposed, energy,
@@ -65,3 +59,6 @@ class McmcThetaEstimator:
         theta[accepted] = theta_proposed[accepted]
         energy[accepted] = energy_proposed[accepted]
         return theta, energy
+
+    def _select_proposal(self, theta: np.array, dimension: np.array) -> np.array:
+        return np.array([np.random.normal(t, self._proposal_std[dim], 1)[0] for t, dim in zip(theta, dimension)])

@@ -2,7 +2,7 @@
 maximize and balance the sample size per bin."""
 import numpy as np
 import pandas as pd
-
+from typing import Tuple
 
 class Grid:
     """
@@ -43,3 +43,8 @@ class Grid:
 
     def __repr__(self) -> None:
         return "Grid[num_bins={}, centers={}]".format(self.num_bins, self.center)
+
+    @property
+    def range(self) -> Tuple[float]:
+        """Returns the grid range."""
+        return self.endpoint[0], self.endpoint[-1]

@@ -52,7 +52,7 @@ class Solver:
             likelihood = nirt.likelihood.Likelihood(self.x, self.c, grid, irf)
             theta_estimator = nirt.mcmc.McmcThetaEstimator(likelihood, temperature)
             if energy is None:
-                energy = likelihood.log_likelihood_term(theta, active)
+                energy = likelihood.log_likelihood_term(theta, active, proposal_std)
             logger.info("log-likelikhood {:.2f}".format(sum(energy)))
             for sweep in range(self._num_sweeps):
                 theta, energy = theta_estimator.estimate(theta, active=active, energy=energy)

@@ -19,6 +19,28 @@ class TestSolver(unittest.TestCase):
         # Number of items.
         I = 20
         # Number of latent ability dimensions (sub-scales).
+        C = 1
+        # Using 2-PL model with fixed discrimination and no asymptote for all items.
+        asym = 0  # 0.25
+        discrimination = 1
+        self.X, self.theta, self.b, self.c = \
+            nirt.simulate.simulate_data.generate_simulated_data(P, I, C, asym=asym, discrimination=discrimination)
+
+        solver = nirt.solver.Solver(self.X, self.c)
+        theta = solver.solve()
+
+        print(theta)
+        assert theta == 0
+
+    @unittest.skip
+    def test_solve_multidimensional_theta(self):
+        np.random.seed(0)
+
+        # Number of persons.
+        P = 100
+        # Number of items.
+        I = 20
+        # Number of latent ability dimensions (sub-scales).
         C = 5
         # Using 2-PL model with fixed discrimination and no asymptote for all items.
         asym = 0  # 0.25

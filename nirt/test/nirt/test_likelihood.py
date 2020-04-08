@@ -38,7 +38,7 @@ class TestLikelihood(unittest.TestCase):
 
         likelihood = nirt.likelihood.Likelihood(self.x, self.c, grid, irf)
 
-        for p in [38]: #range(self.P):
+        for p in range(self.P):
             i = np.where(self.c == c)[0][0]
             x = irf[i].x
             t = np.linspace(x[0], x[-1], 10 * len(x) + 1)

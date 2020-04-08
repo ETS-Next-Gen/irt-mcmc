@@ -127,7 +127,10 @@ def initial_guess(x, c):
     # Population mean and stddev of each dimension.
     population_mean = x_of_dim.mean(axis=0)
     population_std = x_of_dim.std(axis=0)
-    return (x_of_dim - population_mean) / population_std
+    theta = (x_of_dim - population_mean) / population_std
+    d = theta.max(axis=0) - theta.min(axis=0)
+    theta += 0.001 * d * (2 * np.random.rand(*theta.shape) - 1)
+    return theta
 
 
 def _clipped_log(x):

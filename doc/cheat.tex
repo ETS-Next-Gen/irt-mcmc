@@ -4,6 +4,10 @@
 \usepackage{authblk}
 \usepackage{algorithm}
 \usepackage{algorithmic}
+\usepackage{mathtools}
+
+\DeclarePairedDelimiter{\ceil}{\lceil}{\rceil}
+\DeclarePairedDelimiter\floor{\lfloor}{\rfloor}
 
 \newcommand{\bbeta}{\boldsymbol\beta}
 \newcommand{\bt}{\boldsymbol\tau}
@@ -30,34 +34,100 @@
 \maketitle
 
 \begin{abstract}
-We consider the problem of identifying groups of students that have seen a significant subset (20\% - 40\%) of leaked items before taking the test, and whose responses to these items are therefore highly correlated. Multiple cheater sets may exist and overlap, corresponding to overlapping leaked item sets. We only assume the scores and response times on the current test are available, and no  prior knowledge about the students or items. We model the problem as biclustering of an undirected bipartite graph of students and items, where edge weights measure the discrepancy between the student's predicted success on the item (estimated for instance by IRT) and his/her actual performance. First, we generate low-dimensional feature vectors of students and items via graph Laplacian relaxation, from which meaningful distances between close neighbors are derived. Then, we create a mini-clustering of the students using a top-down hierarchical K-means algorithm. Clusters are fuzzy, allowing a student to belong to multiple clusters. Finally, we look for clusters of unusually large size and strength and flag them as likely collusion groups. The computational complexity is linear in the number of students and items. We demonstrate the approach for synthetic data and for a real-world data of 1636 students and 170 items. {\bf Add cheater set reconstruction accuracy here once we have implemented the method.}
+We consider the problem of identifying groups of persons that have seen a significant subset (20\% - 40\%) of leaked items before taking the test, and whose responses to these items are therefore highly correlated. Multiple cheater sets may exist and overlap, corresponding to overlapping leaked item sets. We only assume the item responses on the current test are available. Response times are incorporated into the model, if available. No prior knowledge about the persons or items is assumed. We model the problem as biclustering of an undirected bipartite graph of persons and items, where edge weights measure the discrepancy between the person's predicted success on the item (estimated for instance by IRT) and his/her actual performance. First, we generate low-dimensional feature vectors of persons and items via graph Laplacian relaxation, from which meaningful distances between close neighbors are derived. Then, we create a mini-clustering of the persons using a top-down hierarchical K-means algorithm. Clusters are fuzzy, allowing a person to belong to multiple clusters. Finally, we look for clusters of unusually large size and strength and flag them as likely collusion groups. The computational complexity is linear in the number of persons and items. We demonstrate the approach for synthetic data and for a real-world data of 1636 persons and 170 items. {\bf Add cheater set reconstruction accuracy here once we have implemented the method.}
 \end{abstract}
 
 \section{Introduction}
-Test collusion is defined as the sharing of test materials or answers to test items before or during a test, and poses a serious problem to the validity of score interpretation. Collusion is typically indicated by a high response correlation among a subset of test takers (hereafter denoted ``students'') involved in the collusion (a ``collusion group'') for a subset of the items (``leaked items''). The two major challenges in detecting collusion are (a) the leaked item sets are unknown; (b) collusion groups may overlap; and (c) leaked items of different collusion groups may also overlap.
+Test Collusion (TC) is defined as the sharing of test materials or answers to test items before or during a test, and poses a serious problem to the validity of score interpretation. Collusion is typically indicated by a high response correlation among a subset of test takers (hereafter denoted ``persons'') involved in the collusion (a ``TC group'') for a subset of the items (``leaked items''). The two major challenges in detecting collusion are (a) the leaked item sets are unknown; (b) TC groups may overlap; and (c) leaked items of different collusion groups may also overlap.
 
-We assume that the leaked item subsets are large (20\% - 40\% of all items in our applications), which makes it possible to detect collusion sets. Notwithstanding, we only assume the scores and response times on the current test are available. No prior knowledge about the students or items is assumed (e.g., whether items were used on previous tests and might have a higher probability of leakage).
+We assume that the leaked item subsets are large (20\% - 40\% of all items in our applications), which makes it possible to detect collusion sets. Notwithstanding, we only assume the scores and response times on the current test are available. No prior knowledge about the persons or items is assumed (e.g., whether items were used on previous tests and might have a higher probability of leakage).
 
 The development of statistical methods for detecting collusion has become a a hot research topic in test security \cite{refs}, and pose interesting statistical and computational challenges. Searching through all possible portions is both computationally expensive or prohibitive, and decreases the detection power or increase the false-positive rate of a statistical test.
 
-In particular, computational graph-based methods have been suggested. In \cite{belov}, an unweighted, undirected student similarity graph is formulated based on the $\omega$ response similarity index is constructed. An edge is added if and only if the similarity index exceeds a pre-determined significance level. The method then searches for the largest clique, tests if its size is significantly large (in a clique size distribution estimated using Monte-Carlo simulations); if so, removes it from the graph, and looks for the largest clique; etc. The drawbacks of this method are (a) the graph includes only students as nodes; items are basically aggregated in the response similarity index, making it hard to detect which items were leaked; and (b) looking for perfect cliques is very restrictive; it depends on the particular threshold used to include edges. In practice, collusion groups may be near-cliques or just strongly connected clusters, where connectivity is not defined by the presence of an edge between two nodes, but when their graph neighborhoods are similar, that is, there are many short paths linking them (whether they are directly connected or not).
+In particular, computational graph-based methods have been suggested. In \cite{belov}, an unweighted, undirected person similarity graph is formulated based on the $\omega$ response similarity index is constructed. An edge is added if and only if the similarity index exceeds a pre-determined significance level. The method then searches for the largest clique, tests if its size is significantly large (in a clique size distribution estimated using Monte-Carlo simulations); if so, removes it from the graph, and looks for the largest clique; etc. The drawbacks of this method are (a) the graph includes only persons as nodes; items are basically aggregated in the response similarity index, making it hard to detect which items were leaked; and (b) looking for perfect cliques is very restrictive; it depends on the particular threshold used to include edges. In practice, collusion groups may be near-cliques or just strongly connected clusters, where connectivity is not defined by the presence of an edge between two nodes, but when their graph neighborhoods are similar, that is, there are many short paths linking them (whether they are directly connected or not).
 
-We propose a different graph-based biclustering approach inspired by {\it multiscale methods} -- a direct application of \cite[Sec.~10]{msgd}. We build a bipartite graph of students and items, where edge weights also take into account response times. Assuming cheaters have a faster response time than non-cheaters, they will be more strongly connected to leaked items. We then find a {\it bi-clustering} of the graph: clustering in one partition, which is tied with clustering in the other.
+We propose a different graph-based biclustering approach inspired by {\it multiscale methods} -- a direct application of \cite[Sec.~10]{msgd}. We build a bipartite graph of persons and items, where edge weights also take into account response times. Assuming cheaters have a faster response time than non-cheaters, they will be more strongly connected to leaked items. We then find a {\it bi-clustering} of the graph: clustering in one partition, which is tied with clustering in the other.
 
-The algorithm first builds feature vectors using a relaxation process of the graph Laplacian. These feature vectors give rise to meaningful distances between close neighbors on the graph. Relaxation-based graph distances were first developed for undirected graphs in \cite{safro} and applied to solving graph Laplacian systems in \cite{lamg}, and to finding near-cliques of descendants sharing the same DNA haplotype in \cite{primal}. Here, we apply relaxation-based distances to the bipartite graph, generate a {\it miniclustering} of students that have small distances, and look for large, strongly-connected clusters. Clusters are allowed to overlap. We believe that this approach is more flexible than looking for exact cliques, and less susceptible to the precise value of edge thresholding.
+The algorithm first builds feature vectors using a relaxation process of the graph Laplacian. These feature vectors give rise to meaningful distances between close neighbors on the graph. Relaxation-based graph distances were first developed for undirected graphs in \cite{safro} and applied to solving graph Laplacian systems in \cite{lamg}, and to finding near-cliques of descendants sharing the same DNA haplotype in \cite{primal}. Here, we apply relaxation-based distances to the bipartite graph, generate a {\it miniclustering} of persons that have small distances, and look for large, strongly-connected clusters. Clusters are allowed to overlap. We believe that this approach is more flexible than looking for exact cliques, and less susceptible to the precise value of edge thresholding.
 
 The paper is organized as follows. Sec.~\ref{model} describes how the graph is constructed from response data. The biclustering algorithm is described in Sec.~\ref{biclustering}. Numerical results are detailed in Sec.~\ref{results}, followed by concluding remarks on the generalization of the method in Sec.~\ref{remarks}.
 
 \section{Bipartite Graph Formulation}
 \label{model}
-We assume $M$ persons take a test consisting of $N$ items. Let $x_{mn}$ be the score of student $m$ on item $n$ and $t_{mn} > 0$ the response time. We assume dichotomous items, $x_{mn} \in \left\{0,1\right\}$, although the method is applicable to any type of item scoring (see \ref{remarks}).
+We assume $P$ persons take a test consisting of $I$ items. Let $x_{pi}$ be the score of person $p$ on item $i$. We assume dichotomous items, $x_{mn} \in \left\{0,1\right\}$, although the method is applicable to any type of item scoring (see \ref{remarks}). We define a bipartite graph $G$ consisting of two disjoint sets of nodes (``partitions''), $\{a_1,a_2,\ldots,a_P\}$ for persons, and $\{b_1,b_2,\ldots,b_N\}$ for items with no intra-partition links; the only links are from some $a_p$ to some $b_i$, only when the student response was correct (as collusion does not cover cases where a wrong response is aberrant, i.e., when a person is "throwing the test"), with a weight $w_{pi}$ that reflects the degree of aberration of the student response.
 
- $x_{mn} \in [0,1]$. We define a bipartite graph $G$ consisting of two disjoint sets of nodes (``partitions''), $\{a_1,a_2,\ldots,a_M\}$ for students, and $\{b_1,b_2,\ldots,b_N\}$ for items with no intra-partition links; the only links are from some $a_m$ to some $b_n$, with a weight $w_{mn}$ that reflects the strength of connection between a student and an item. We choose $w_{nm} := x_{nm}/t_{nm}^s$, where $s > 0$ is a hyper-parameter that can be chosen higher or lower to emphasize or de-emphasize fast response times.
+Let $\theta$ is a person latent ability variable, and $X_{pi}$ is the random variable representing person $p$'s response to item $i$. If we somehow estimate person $p$'s ability $\theta_p$ and item $i$'s difficulty parameter $\beta_i$, and subsequently the success probability
+\begin{equation}
+	P_{pi} := P[X_{pi}=1 | \theta_p, \beta_i)]\,,
+	\label{ppi} 
+\end{equation}
+then we can define
+\begin{equation}
+  w_{pi} := \frac{1}{P_{pi}^P{\eta}}\,,
+  \label{weight}
+\end{equation}
+where $\eta > 0$ is a hyper-parameter that can be chosen higher or lower to emphasize or de-emphasize highly aberrant responses.
+
+If response times $t_{pi} > 0$ are also available for all $p$ and $i$, and $T_{pi}$ is the random variable representing person $p$'s response time on item $i$, (\ref{weight}) is modified to
+\begin{equation}
+  w_{pi} := \frac{1}{\tilde{P}_{pi}^{\eta}}\,,\qquad \tilde{P}_{pi} := P[X_{pi}=1, T_{pi}=t_{pi} | \theta_p, \beta_i)\,.
+\end{equation}
+This probability-based definition ensures that all graph weights are on the same scale, as weights would otherwise need to be properly normalized across items and/or persons. Computing $P_{pi}$ or $\tilde{P}_{pi}$ generally requires a full Item Response Theory (IRT) model; see Sec.~\ref{remarks}. In this paper we focus on TC group identification, and use a very crude, simple approximation to them.
+
+\subsection{Estimating Success Probabilities}
+\label{ability_estimation}
+
+\subsubsection{Item Responses Only}
+We describe how to estimate item success without response time. We assume experimental independence (person responses are independent) and local independence (a person's responses to items are independent), and that the test measures a scalar student ability $\theta$ (more generally, it can be a vector in $\R^C$ representing $C$ latent ability dimensions). For each person $p$, we $\theta_p$ is the number of standard deviations away from the mean test score fraction; namely,
+\begin{eqnarray}
+	f_{p} &:=& \frac{1}{I} \sum_i x_{pi}} \\
+	\bar{f} &=& \frac{1}{P} \sum_{p=1}^{P} f_{p} \\
+	\sigma &=& \left(\frac{1}{P-1} (f_{pc} - \bar{f})^2 \right)^{\frac12} \\
+	\theta_{p} &=& \frac{f_{p} - \bar{f}}{\sigma}\,.
+	\label{theta_init}
+\end{eqnarray}
+
+Next, we define an Item Response Function (IRF) for each item,
+\begin{equation}
+  f_i(\theta) = f(\theta; \beta_i) = P[X_i=1 | \theta=\theta_p, \beta_i)]\,,
+\end{equation}
+where $\beta_i$ is a vector of item parameters. We represent $P_i$ as a numerical histogram: we bin $\left\{\theta_p\right\}_p$ into $n$ quantile bins delimited by $\varphi_0 < \xi_1 < \dots < \varphi_n$, where $n = \floor*{P / 10}$. We define the bin values at the bin centers $\left\{\xi_j \right\}_{j=1}^n$ by
+\begin{equation}
+	\label{histogram_const}
+	f_{ij} = \frac{\sum_{p \in A_j} X_{pi}}{|A_j|}\,,\qquad
+	A_j := \left\{ p : \varphi_{j-1} \leq \ta_p < \varphi_j \right\}\,.
+\end{equation}
+$P_i$ is the linear interpolant from its discrete values $\beta_i := \{f_{ij} := f_i(\xi_j)\}_j$ (smoother schemes could be substituted instead, e.g., B-splines, as in \cite{matt_bsplines}). Finally, we set our approximation to
+\begin{equation}
+	P_{pi} = f_i(\theta_p)\qquad\, p=1,\dots,P\,,i=1,\dots,I.
+	\label{ppi_interpolation}
+\end{equation}
+
+\subsubsection{Item Responses and Times}
+If response times are available, we also want to account for faster-than-expected response times in the aberration definition. Response time are often modeled as log-normal \cite{sandip}. For item $i$, we construct the distribution $\left\{y_{pi}\right\}_p$, $y_{pi} := \log(t_{pi})$ of log response times to item $i$, and calculate the corresponding 1-tailed p-values
+$$ z_{pi} = P[y{\cdot,i} \leq y_{pi}]\,, $$,
+i.e., the probability of observing a time at least as fast as person $i$'s time. We then define
+\begin{equation}
+	\tilde{P}_{pi} =  P_{pi} z_{pi}\,,
+	\label{ppi_interpolation}
+\end{equation}
+where $P_{pi}$ is defined by (\ref{ppi_interpolation}). This assumes the item response and response time are independent, which is clearly wrong
+
+\begin{eqnarray}
+	f_{p} &:=& \frac{1}{I} \sum_i x_{pi}} \\
+	\bar{f} &=& \frac{1}{P} \sum_{p=1}^{P} f_{p} \\
+	\sigma &=& \left(\frac{1}{P-1} (f_{pc} - \bar{f})^2 \right)^{\frac12} \\
+	\theta_{p} &=& \frac{f_{p} - \bar{f}}{\sigma}\,.
+	\label{theta_init}
+\end{eqnarray}
+
+
+we build a histogram of response times for item $i$ in a similar manner: bin $\left\{\theta_p\right\}_p$
 
 
 \section{Biclustering Algorithm}
 \label{biclustering}
-Biclustering is clustering in one partition that is tied with clustering in the other. Two students are clustered together not only when they have largely have the same answers to all items, but also when they answered the same items that largely belong to the same class. Two items belong to the same class if they have been answered roughly the by the same cluster of students. The clustering is fuzzy: a student may belong to multiple clusters and and item may participate in multiple classes. 
+Biclustering is clustering in one partition that is tied with clustering in the other. Two persons are clustered together not only when they have largely have the same answers to all items, but also when they answered the same items that largely belong to the same class. Two items belong to the same class if they have been answered roughly the by the same cluster of persons. The clustering is fuzzy: a person may belong to multiple clusters and and item may participate in multiple classes. 
 
 \subsection{Relaxation-based Feature Vectors}
 The Biclustering algorithm starts by assigning each $a_m$ with a normalized random feature vector $\alpha_m \in \R^q$:
@@ -80,26 +150,26 @@ Next, the algorithm repeats $K$ times the following alternating pair of normaliz
 \end{equation}
 Each iteration is equivalent to a Gauss-Seidel relaxation sweep for the graph Laplacian \cite{lamg} on each of the nodal vectors $y^i := (\alpha_1^i,\dots,\alpha_M^i,\beta_1^i,\dots,\beta_N^i)$, $i=1,\dots,K$, followed by the normalization step.
 
-After these steps, two students $a_m$ and $a_{m'}$ who had a similar response pattern would clearly have small distance between them:
+After these steps, two persons $a_m$ and $a_{m'}$ who had a similar response pattern would clearly have small distance between them:
 \begin{equation}
 d_{mm'} := \|\alpha_m - \alpha_{m'} \|_2 \ll 1\,.
 \end{equation}
-Moreover, $d_{mm'}$ will be small even if they responded correctly to different items, as long as most of the items they responded the same to were answered similarly by a large set of students; and so on, going back and forth between students and items.
+Moreover, $d_{mm'}$ will be small even if they responded correctly to different items, as long as most of the items they responded the same to were answered similarly by a large set of persons; and so on, going back and forth between persons and items.
 
-In particular, two students in the same collusion group will have a small distance, allowing us to discover collusion groups as clusters of small radius.
+In particular, two persons in the same TC group will have a small distance, allowing us to discover collusion groups as clusters of small radius.
 
 The number of steps $K$ should be small to keep the algorithm efficient as well as retain meaningful information in the feature vectors $\alpha^i, \beta^i$ (as $K \rightarrow \infty$, these vectors tend to a constant over each connected component of $G$, as the averaging extends over the entire component). The $d_{mm'}$ metric can thus only be used to identify small neighborhoods in each partition. In other words, it can be used for defining in each partition many \underline{mini-clusters} of neighbors, which is done efficiently using the hierarchical k-means algorithm described next.
 
-\subsection{Student Mini-Clustering}
+\subsection{person Mini-Clustering}
 \label{miniclustering}
-First, we build a hierarchical clustering of students based on their feature vectors using the method of \cite{miniclustering}. Each student corresponds to a $q$-dimensional point $\alpha_n$. The hierarchy consists of levels $\left\{\cG^s\right\}_{s=1}^S$ where each level is a set of person groups $\cG_s := \left\{G_l\right\}_{l=1}^{P^s}$.
+First, we build a hierarchical clustering of persons based on their feature vectors using the method of \cite{miniclustering}. Each person corresponds to a $q$-dimensional point $\alpha_n$. The hierarchy consists of levels $\left\{\cG^s\right\}_{s=1}^S$ where each level is a set of person groups $\cG_s := \left\{G_l\right\}_{l=1}^{P^s}$.
 
 $G^1$ consists of a single (or few groups obtained by k-means). Each $G^s$, $s=2,\dots,S$ is obtained from the parent level $G^{s-1}$ by (1) sub-dividing each parent group into $b$ child groups using k-means within the group; and (2) improving all child centers by global k-means, where each point is reassigned to the closest of its $r \approx 5$ nearest centers. This requires maintaining at every level approximate neighboring center lists of each point and each center, which are conveniently and derived from the parent level's neighbor lists (for a child center, we use the nearest $r$ centers within its parent's child centers and the parent's neighbors' child centers; similarly for a point). The entire process requires $O(r I P \log P)$ time and $O(r I P)$ storage.
 
 \subsection{Unfinished ideas}
 The basic open question: how to detect collusion groups from the clustering?
 \begin{itemize}
-	\item \underline{Fuzzy hierarchical clustering.} Instead of the disjoint miniclusters one can use the $d_{mm'}$ metric to build in each partition \underline{fuzzy} mini-clusters, where each node has a \underline{probability} of belonging to each one of possible \underline{several} mini-clusters. The same can then be done at all levels of the hierarchical clustering. This allows a student to participate in multiple collusion groups.
+	\item \underline{Fuzzy hierarchical clustering.} Instead of the disjoint miniclusters one can use the $d_{mm'}$ metric to build in each partition \underline{fuzzy} mini-clusters, where each node has a \underline{probability} of belonging to each one of possible \underline{several} mini-clusters. The same can then be done at all levels of the hierarchical clustering. This allows a person to participate in multiple collusion groups.
 	\item \underline{Out of distribution clusters.} One could try several maximum radius threshold for the miniclustering, and see whether we find unusually large clusters of small radius, which may be candidate collusion groups. In this case there are only two scales: nodes and clusters, similar to \cite{primal}.
   \item \underline{Bottom-up clustering.} gradually build collusion groups - smaller miniclusters, from which we construct bigger clusters by emphasizing ``aggregative properties'', in this case, perhaps items that may seem like they were leaked. Then we proceed in the standard way: to create a bipartite graph whose nodes are the mini-clusters, we need to define  the affinity (the weight of the link) between any mini-cluster $A_p$ in the first partition and any mini-cluster $B_q$ in the second partition. A natural definition is
 \begin{equation}
@@ -118,9 +188,12 @@ and $\eta>0$ is a hyper-parameter that can be chosen higher or lower to emphasiz
 
 \section{Concluding Remarks}
 \label{remarks}
-
+The algorithm can be extended in several ways, indicated below.
 \begin{itemize}
 	\item {Continuous scores.} The weight definition $w_{nm} := x_{nm}/t_{nm}^q$ is an unambitious measure of response quality for ,dichotomous items, because there is a link if and only if the response was correct, and the mapping from times to weights is one-to-one and monotonically decreasing. For continuous scores, this would be ambiguous: a score and response time results in the same weight as a lower score and faster response time, or vice versa. If this is undesirable for the application, one can redefine $w_{nm}$ to have a partial order first in scores (say, piecewise constant on score intervals) and then a secondary partial order inversely proportional to the response time within each score interval.
+	\item {IRT and Iterative refinement.} As indicated in Sec.~\ref{ability_estimation}, estimation of person abilities and item difficulties can be replaced by a much more accurate method, e.g., IRT. \cite{nirt} describes an algorithm whose first step is the estimate used here: $\theta$ estimation relative to the population mean score, followed by IRF histogram construction. However, both $\theta$'s and IRFs are subsequently estimated during Monte-Carlo Markov Chain (MCMC). The IRT estimation gives rise to improved TC graph edge weights, which should yield more accurate TC groups. IRT estimation can then be repeated, omitting cheater responses to leaked items (or giving them a very small weight in estimation) to obtain improved $\theta$'s and IRFs, and so on. Only few such iterations are likely necessary.
+	\item {IRT that includes response times.} TBA
+	
 \end{itemize}
 
 \section{Acknowledgments}

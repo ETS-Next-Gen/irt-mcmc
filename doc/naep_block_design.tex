@@ -1,0 +1,77 @@
+\documentclass{article}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{authblk}
+
+\DeclarePairedDelimiter{\ceil}{\lceil}{\rceil}
+\DeclarePairedDelimiter\floor{\lfloor}{\rfloor}
+
+\newcommand{\bbeta}{\boldsymbol\beta}
+\newcommand{\bt}{\boldsymbol\tau}
+\newcommand{\bta}{\boldsymbol\ta}
+\newcommand{\cA}{\mathcal{A}}
+\newcommand{\cC}{\mathcal{C}}
+\newcommand{\cE}{\mathcal{E}}
+\newcommand{\cG}{\mathcal{G}}
+\newcommand{\cV}{\mathcal{V}}
+\newcommand{\bY}{\mathbf{Y}}
+\newcommand{\st}{v_{\ta}}
+\newcommand{\ta}{\theta}
+\newcommand{\lla}{\longleftarrow}
+\newcommand{\I}{\mathbb{I}}
+\newcommand{\Normal}{\mathcal{N}}
+\newcommand{\R}{\mathbb{R}}
+\newcommand{\bX}{\mathbf{X}}
+
+\title{NAEP Mathematics 3-Block Design Optimization}
+
+\author[1]{Oren Livne}
+\affil[1]{Educational Testing Service, 660 Rosedale Road, Attn: MS-12, T-197, Princeton, NJ 08540. Email: olivne@ets.org}
+\date{\today}
+	
+\begin{document}
+\maketitle
+
+\begin{abstract}
+We consider the problem of finding the optimal test design for the NAEP mathematics test. Each student is given three blocks, where blocks are chosen from a set blocks. The question is which block combinations to use out of all possible combinations, given certain constraints. We formulate the problem using an integer linear programming problem and solve it for the particular parameters of the NAEP test using a Python package, obtaining a better solution that the current manually-devised solution. 
+\end{abstract}
+
+\section{Problem Formulation}
+The NAEP mathematics test committee is considering moving to a ``3-block design''. That is,
+each student is to be given 3 blocks, where a block is a set of questions. Different students will see different 3-block combinations, and the problem is which combinations to select for our test design.
+
+Blocks are chosen from a list of $B = 14$ possible blocks. Of those, $S = 8$ are ``special'' blocks, $C = 5$ are calculator blocks (blocks during which the calculator tool is available), and the intersection between special and calculator blocks consists of $C'=3$ blocks. We enumerate the three block slots 0, 1, and 2. Blocks are enumerated $0,\dots,B-1$. We would like to minimize the number of combinations (to maximize statistical power given the fixed available student sample size). The desired constraints on block appearance are
+\begin{enumerate}
+	\item Only a special block may appear in slot 2.
+	\item Every unordered pair of blocks must appear in slots 0 and 1 for some combination. That is, either $(i, j)$ or $(j, i)$ must appear as part of a $(i, j, k)$ combination selected for the test design, for all $0 \leq i < j < B$.
+	\item Every block $i$, $i=0,\dots,B-1$ must appear the same number of times in slot 0 and slot 1.
+	\item Each (special) block must appear the same number of times as all other (special) blocks in slot 2.
+	\item The number of combinations containing only calculator blocks must be at least $A=1$ (this is a parameter; $A=2$ would be preferable).
+\end{enumerate}
+
+We formulate the problem as an integer Linear Programming (LP) problem. Let
+\begin{equation}
+	T = \left\{ (i, j, k) : 0 \leq i, j < B, 0 \leq k < S, i \not = j \not = k \right \}
+\end{equation}
+be the set of all ordered triplets (i.e. combinations that may appear in the test design; $|T|=1248$ for our case.  Let $x_{ijk}$ be the binary variable indicating whether $(i,j,k)$ is chosen for the design. We define several auxiliary variables: $d$, a mapping from an ordered triplet to the set of all corresponding unordered triplets in $T$ (for instance, $d((1,2,8)) = \left\{ (8,1,2), (8,2,1), (1,8,2), (2,8,1) (\right\}$ since $8$ is not a special block). The domain of $D$ is the st of ordered triplets, whose size here is $344$. Let $c$ be a vector of size $B$, where $c_i=1$ if $i$ is a calculator block, $0$ otherwise.
+The LP problem is thus
+\begin{eqnarray}
+	\min \sum_{i,j,k} x_{ijk} && \\
+	\sum_{(i',j',k') \in d((i,j,k))} x_{i'j'k'} &\leq&1 \qquad (i,j,k) \in {\mbox{Domain}}(d)\,, \\
+	\sum_k \left( x_{ijk} + x_{jik} \right) &\geq&1 \qquad 0 \leq i < j < B\,, \\
+	\sum_{i,k} x_{ijk} &=&1 \sum_{i,k} x_{ikj}\,, \qquad j = 0,\dots,B-1\,, \\
+	S \sum_{j,k} x_{ijk} &=& \sum_{i'j'k'} x_{i'j'k'}\,, \qquad k = 0,\dots,S-1\,, \\
+	\sum_{i,j,k} (\max\left\{c_i + c_j + c_k - 2, 0\right\} x_{ijk} &\geq& A\,.
+\end{eqnarray}
+For $B = 14, S=8$ we have $344 + 14 + 8 + 1 = 367$ constraints for $1248$ binary variables.
+
+\section{Implementation}
+We used MIP \cite{mip}, a Python library for solving mixed integer LP problems, which uses a branch-and-bound algorithm to solve the relaxed formulation for $0 \leq x_{ijk} \leq 1$. The optimum was found in less than a second on a single CPU, and consisted of $104$ triplets, which is better than the $112$ triplets selected by manual calculation.
+
+\section{Acknowledgments}
+The work reported herein was supported by Educational Testing Service Research Allocation Project {\bf TBD...}.
+
+%\bibliographystyle{plain}
+\bibliography{irt_mcmc}
+
+\end{document}

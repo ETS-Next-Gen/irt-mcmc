@@ -4,7 +4,7 @@ import pytest
 
 import nirt.irf
 import nirt.mcmc
-import nirt.simulate.simulate_data
+import nirt.simulate.simulate_data as sim
 import nirt.solver
 import numpy as np
 import unittest
@@ -25,8 +25,7 @@ class TestMcmc(unittest.TestCase):
         # Number of latent ability dimensions (sub-scales).
         self.C = 1
         # Using 2-PL model with fixed discrimination and no asymptote for all items.
-        self.x, self.theta, self.b, self.c = \
-            nirt.simulate.simulate_data.generate_simulated_data(self.P, self.I, self.C, asym=0, discrimination=1)
+        self.x, self.theta, self.b, self.c = sim.generate_dichotomous_responses(self.P, self.I, self.C, asymptote=0)
 
     def test_mcmc_with_indicator_small_temperature_decreases_likelihood(self):
         num_bins = 10  # IRF resolution (#bins).

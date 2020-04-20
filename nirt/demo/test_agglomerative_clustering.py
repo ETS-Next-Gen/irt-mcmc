@@ -9,7 +9,7 @@ class TestAgglomerativeClustering(unittest.TestCase):
 
     def test_cluster_members(self):
         c = 5
-        x, _, _ = nirt.simulate.simulate_data.generate_simulated_data(1000, 20, c, permute_items=False)
+        x, _, _ = nirt.simulate.simulate_data.generate_dichotomous_responses(1000, 20, c, permute_items=False)
         print(x.shape)
         d = nirt.clustering.abs_cos_dist(x)
         print(d)

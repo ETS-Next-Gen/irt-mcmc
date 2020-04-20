@@ -23,7 +23,7 @@ if __name__ == "__main__":
     asym = 0  # 0.25
     discrimination = 1
     X, theta_exact, b, c = \
-        nirt.simulate.simulate_data.generate_simulated_data(P, I, C, asym=asym, discrimination=discrimination)
+        nirt.simulate.simulate_data.generate_dichotomous_responses(P, I, C, asymptote=asym, discrimination=discrimination)
 
     solver = nirt.solver.Solver(X, c, sample_size=20, num_iterations=5, num_sweeps=10)
     theta = solver.solve()

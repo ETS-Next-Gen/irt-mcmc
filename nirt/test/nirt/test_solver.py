@@ -24,7 +24,7 @@ class TestSolver(unittest.TestCase):
         asym = 0  # 0.25
         discrimination = 1
         self.X, self.theta, self.b, self.c = \
-            nirt.simulate.simulate_data.generate_simulated_data(P, I, C, asym=asym, discrimination=discrimination)
+            nirt.simulate.simulate_data.generate_dichotomous_responses(P, I, C, asymptote=asym, discrimination=discrimination)
 
         solver = nirt.solver.Solver(self.X, self.c)
         theta = solver.solve()
@@ -46,7 +46,7 @@ class TestSolver(unittest.TestCase):
         asym = 0  # 0.25
         discrimination = 1
         self.X, self.theta, self.b, self.c = \
-            nirt.simulate.simulate_data.generate_simulated_data(P, I, C, asym=asym, discrimination=discrimination)
+            nirt.simulate.simulate_data.generate_dichotomous_responses(P, I, C, asymptote=asym, discrimination=discrimination)
         solver = nirt.solver.Solver(self.X, self.c)
         theta = solver.solve()
         print(theta)

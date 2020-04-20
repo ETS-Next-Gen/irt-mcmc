@@ -24,7 +24,7 @@ class TestLikelihood(unittest.TestCase):
         self.C = 1
         # Using 2-PL model with fixed discrimination and no asymptote for all items.
         self.x, self.theta, self.b, self.c = \
-            nirt.simulate.simulate_data.generate_simulated_data(self.P, self.I, self.C, asym=0, discrimination=1)
+            nirt.simulate.simulate_data.generate_dichotomous_responses(self.P, self.I, self.C, asymptote=0, discrimination=1)
 
     def test_parameter_mle_maximizes_likelihood(self):
         # Build an IRF from some reasonable theta values.

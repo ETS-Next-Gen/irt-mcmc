@@ -51,6 +51,7 @@ def generate_dichotomous_responses(num_persons, num_items, num_latent_dimensions
     x = np.random.binomial(1, p=p_correct)
     return x, theta, b, c
 
+
 def generate_response_times(num_persons, num_items):
     """
     Generates simulated item response times. This is a log-normal model.

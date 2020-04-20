@@ -46,8 +46,7 @@ def generate_dichotomous_responses(num_persons, num_items, num_latent_dimensions
                                                int(np.ceil(num_items / num_latent_dimensions)), 1).ravel()[:num_items])
 
     # Generate item responses (the observed data) (3PL model).
-    t = np.exp(a*(theta[:, c] - b))
-    p_correct = asymptote + (1 - asymptote) * (t / (1 + t))
+    p_correct = three_pl_model(theta[:, c], a, b, asymptote)
     x = np.random.binomial(1, p=p_correct)
     return x, theta, b, c
 
@@ -71,3 +70,10 @@ def generate_response_times(num_persons, num_items):
     tau = np.random.normal(0, 0.3, num_persons)
 
     return np.exp(np.random.normal(beta[None, :] - tau[:, None], 1/alpha[None, :] ** 2, size=(num_persons, num_items)))
+
+
+def three_pl_model(theta, a, b, asym):
+    """Returns the 3PL model IRF."""
+    t = np.exp(a * (theta - b))
+    p_correct = asym + (1 - asym) * (t / (1 + t))
+    return p_correct

@@ -31,6 +31,7 @@ class ItemResponseFunction:
 
         # Create a linear interpolant from score values at bin centers. Extend IRF as 0 to the left and 1 to the right.
         node = grid.center[has_data]
+        self.node = node
         self.x = np.concatenate(([2 * node[0] - node[1]], node, [2 * node[-1] - node[-2]]))
         self.y = np.concatenate(([0], self.probability, [1]))
         self.interpolant = scipy.interpolate.interp1d(self.x, self.y, bounds_error=False, fill_value=(0, 1))
@@ -43,19 +44,20 @@ class ItemResponseFunction:
     def __repr__(self):
         return "count " + repr(self.count) + "score " + repr(self.score) + "P " + repr(self.probability)
 
-    def plot(self, ax: plt.Axes, title=r"Item  Response Function", label=None) -> None:
+    def plot(self, ax: plt.Axes, title=r"Item  Response Function", label=None, color=None) -> None:
         """
         Draws the IRF interpolant and interpolation nodes and values.
         Args:
             ax: figure axis to draw in.
             title: str, optional, default: None. Plot title.
+            label: str, optional. Default: None. Plot line label.
 
         Returns: None.
         """
         # Draw the interpolation nodes (bin centers + extension nodes).
         t = np.linspace(self.x[0], self.x[-1], 10 * len(self.x) + 1)
-        ax.plot(t, self.interpolant(t), "b-", label=label)
-        ax.plot(self.x, self.y, "ro")
+        ax.plot(t, self.interpolant(t), label=label, color=color)
+        ax.plot(self.x, self.y, color=color, marker="o")
         ax.set_xlabel(r"$\theta$")
         ax.set_ylabel(r"$P(X=1|\theta)$")
         ax.set_title(title)

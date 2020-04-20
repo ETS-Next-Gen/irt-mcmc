@@ -22,7 +22,7 @@ if __name__ == "__main__":
     X, theta_exact, b, c = \
         nirt.simulate.simulate_data.generate_dichotomous_responses(P, I, C, asymptote=asym, discrimination=discrimination)
 
-    solver = nirt.solver.Solver(X, c, sample_size=20, num_iterations=5, num_sweeps=5)
+    solver = nirt.solver.Solver(X, c, num_iterations=5, num_sweeps=5)
     theta = solver.solve()
     np.set_printoptions(precision=2, linewidth=150, threshold=10000)
     error = np.linalg.norm(theta - theta_exact, axis=1)/np.linalg.norm(theta, axis=1)

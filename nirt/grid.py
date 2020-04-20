@@ -38,7 +38,7 @@ class Grid:
             self.bin_index, self.endpoint = \
                 pd.qcut(theta, num_bins, retbins=True, labels=np.arange(num_bins, dtype=int))
         elif method == "uniform":
-            left, right = min(theta), max(theta)
+            left, right = min(theta) - 1, max(theta) + 1
             meshsize = (right - left) / num_bins
             self.bin_index = ((theta - left) // meshsize).astype(int)
             self.endpoint = np.linspace(left, right, num_bins + 1)

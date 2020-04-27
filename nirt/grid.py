@@ -4,6 +4,9 @@ import numpy as np
 import pandas as pd
 from typing import Tuple
 
+"""Limited for fixed uniform domain for theta: [-M,M]."""
+M = 8
+
 
 class Grid:
     """
@@ -24,7 +27,7 @@ class Grid:
         center: array<int>, shape=(N+1,), bin centers.
     """
 
-    def __init__(self, theta: np.array, num_bins: int, method: str = "quantile") -> None:
+    def __init__(self, theta: np.array, num_bins: int, method: str = "quantile", xlim=(-M, M)) -> None:
         """
         Creates a quantile grid.
 
@@ -37,8 +40,11 @@ class Grid:
         if method == "quantile":
             self.bin_index, self.endpoint = \
                 pd.qcut(theta, num_bins, retbins=True, labels=np.arange(num_bins, dtype=int))
-        elif method == "uniform":
-            left, right = min(theta) - 1, max(theta) + 1
+        elif method == "uniform" or method == "uniform-fixed":
+            if method == "uniform-fixed":
+                left, right = xlim
+            else:
+                left, right = min(theta), max(theta)
             meshsize = (right - left) / num_bins
             self.bin_index = ((theta - left) // meshsize).astype(int)
             self.endpoint = np.linspace(left, right, num_bins + 1)
@@ -46,7 +52,7 @@ class Grid:
         self.center = 0.5 * (self.endpoint[:-1] + self.endpoint[1:])
 
     def __repr__(self) -> str:
-        return "Grid[num_bins={}, centers={}]".format(self.num_bins, self.center)
+        return "Grid[num_bins={}, center={}, endpoint={}]".format(self.num_bins, self.center, self.endpoint)
 
     @property
     def range(self) -> Tuple[float, float]:

@@ -72,7 +72,7 @@ where $s  > 0$ is a hyper-parameter that can be chosen higher or lower to emphas
 
 If response times $t_{pi} > 0$ are also available for all $p$ and $i$, and $T_{pi}$ is the random variable representing person $p$'s response time on item $i$, (\ref{weight}) is modified to
 \begin{equation}
-  w_{pi} := \frac{1}{\tilde{P}_{pi}^{\eta}}\,,\qquad \tilde{P}_{pi} := P \left[X_{pi}=1, T_{pi}=t_{pi} | \theta_p, \gamma_i) \right]\,.
+  w_{pi} := \frac{1}{\tilde{P}_{pi}^{s}}\,,\qquad \tilde{P}_{pi} := P \left[X_{pi}=1, T_{pi}=t_{pi} | \theta_p, \gamma_i) \right]\,.
 \end{equation}
 This probability-based definition ensures that all graph weights are on the same scale, as weights would otherwise need to be properly normalized across items and/or persons. Computing $P_{pi}$ or $\tilde{P}_{pi}$ generally requires a full Item Response Theory (IRT) model; see Sec.~\ref{remarks}. In this paper we focus on TC group identification, and use a very crude, simple approximation to them.
 

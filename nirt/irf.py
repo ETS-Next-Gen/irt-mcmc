@@ -32,6 +32,7 @@ class ItemResponseFunction:
         # Create a linear interpolant from score values at bin centers. Extend IRF as 0 to the left and 1 to the right.
         node = grid.center[has_data]
         self.node = node
+        self.has_data = has_data
         self.x = np.concatenate(([2 * node[0] - node[1]], node, [2 * node[-1] - node[-2]]))
         self.y = np.concatenate(([0], self.probability, [1]))
         self.interpolant = scipy.interpolate.interp1d(self.x, self.y, bounds_error=False, fill_value=(0, 1))
@@ -42,9 +43,10 @@ class ItemResponseFunction:
         return self.score / np.maximum(1e-15, self.count)
 
     def __repr__(self):
-        return "count " + repr(self.count) + "score " + repr(self.score) + "P " + repr(self.probability)
+        return "count {} score {} P {}".format(self.count, self.score, self.probability)
 
-    def plot(self, ax: plt.Axes, title=r"Item  Response Function", label=None, color=None) -> None:
+    def plot(self, ax: plt.Axes, title: str = r"Item  Response Function", label: str = None, color: str = None,
+             xlim=(-nirt.grid.M, nirt.grid.M)) -> None:
         """
         Draws the IRF interpolant and interpolation nodes and values.
         Args:
@@ -55,7 +57,9 @@ class ItemResponseFunction:
         Returns: None.
         """
         # Draw the interpolation nodes (bin centers + extension nodes).
-        t = np.linspace(self.x[0], self.x[-1], 10 * len(self.x) + 1)
+        if xlim is None:
+            xlim = (self.x[0], self.x[-1])
+        t = np.linspace(xlim[0], xlim[1], 10 * len(self.x) + 1)
         ax.plot(t, self.interpolant(t), label=label, color=color)
         ax.plot(self.x, self.y, color=color, marker="o")
         ax.set_xlabel(r"$\theta$")

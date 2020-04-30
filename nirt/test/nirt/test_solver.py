@@ -27,7 +27,8 @@ class TestSolver(unittest.TestCase):
         for P in 400 * 4 ** np.arange(4):
             e = [0] * num_experiments
             for experiment in range(num_experiments):
-                X, theta, b, c = sim.generate_dichotomous_responses(P, I, C, asymptote=asym, discrimination=discrimination)
+                X, theta, b, c, v = \
+                    sim.generate_dichotomous_responses(P, I, C, asymptote=asym, discrimination=discrimination)
 
                 # Initial guess for thetas.
                 t = nirt.likelihood.initial_guess(X, c)
@@ -64,7 +65,7 @@ class TestSolver(unittest.TestCase):
         # Using 2-PL model with fixed discrimination and no asymptote for all items.
         asym = 0  # 0.25
         discrimination = 1
-        X, theta, b, c = sim.generate_dichotomous_responses(P, I, C, asymptote=asym, discrimination=discrimination)
+        X, theta, b, c, v = sim.generate_dichotomous_responses(P, I, C, asymptote=asym, discrimination=discrimination)
 
         solver = nirt.solver.Solver(X, c)
         theta_approx = solver.solve()
@@ -83,7 +84,7 @@ class TestSolver(unittest.TestCase):
         # Using 2-PL model with fixed discrimination and no asymptote for all items.
         asym = 0  # 0.25
         discrimination = 1
-        X, theta, b, c = sim.generate_dichotomous_responses(P, I, C, asymptote=asym, discrimination=discrimination)
+        X, theta, b, c, v = sim.generate_dichotomous_responses(P, I, C, asymptote=asym, discrimination=discrimination)
         solver = nirt.solver.Solver(X, c)
         theta = solver.solve()
         print(theta)

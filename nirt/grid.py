@@ -46,6 +46,7 @@ class Grid:
             else:
                 left, right = min(theta), max(theta)
             meshsize = (right - left) / num_bins
+#            print("left {} right {}".format(left, right))
             self.bin_index = ((theta - left) // meshsize).astype(int)
             self.endpoint = np.linspace(left, right, num_bins + 1)
         self.bin = np.array([np.where(self.bin_index == index)[0] for index in range(num_bins)])

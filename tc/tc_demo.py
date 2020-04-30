@@ -120,7 +120,7 @@ if __name__ == "__main__":
     C = 1
     asym = 0
     discrimination = 1
-    X, theta, b, c = sim.generate_dichotomous_responses(P, I, C, asymptote=asym, discrimination=discrimination)
+    X, theta, b, c, v= sim.generate_dichotomous_responses(P, I, C, asymptote=asym, discrimination=discrimination)
 
     # Algorithm parameters.
     # Aberration accentuation parameter.

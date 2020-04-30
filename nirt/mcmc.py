@@ -22,7 +22,7 @@ class McmcThetaEstimator:
         """Returns the Metropolis acceptance fraction over all steps performed to date."""
         return self.num_accepted / self.num_steps
 
-    def estimate(self, theta: np.array, active: Tuple[np.array] = None, energy: np.array = None) -> \
+    def estimate(self, theta: np.array, v: np.array, active: Tuple[np.array] = None, energy: np.array = None) -> \
             Tuple[np.array, np.array]:
         """
         Executes a Metropolis-Hastings sweep over all variables. Since we assume each item measures a single dimension
@@ -44,9 +44,9 @@ class McmcThetaEstimator:
         if active is None:
             active = np.unravel_index(np.arange(theta.size), theta.shape)
         theta_proposed = self._select_proposal(theta, active[1])
-        energy_proposed = self._likelihood.log_likelihood_term(theta_proposed, active)
+        energy_proposed = self._likelihood.log_likelihood_term(theta_proposed, v, active)
         if energy is None:
-            energy = self._likelihood.log_likelihood_term(theta)
+            energy = self._likelihood.log_likelihood_term(theta, v)
         energy_diff = energy_proposed - energy
         alpha = np.minimum(1, np.exp(np.minimum(500, energy_diff / self.temperature)))
         accepted = np.random.random(len(theta)) < alpha

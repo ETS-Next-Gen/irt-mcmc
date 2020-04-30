@@ -19,7 +19,7 @@ if __name__ == "__main__":
     # Using 2-PL model with fixed discrimination and no asymptote for all items.
     asym = 0  # 0.25
     discrimination = 1
-    X, theta_exact, b, c = \
+    X, theta_exact, b, c, v = \
         nirt.simulate.simulate_data.generate_dichotomous_responses(P, I, C, asymptote=asym, discrimination=discrimination)
 
     solver = nirt.solver.Solver(X, c, num_iterations=5, num_sweeps=5)

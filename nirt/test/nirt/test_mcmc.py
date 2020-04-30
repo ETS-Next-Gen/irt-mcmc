@@ -25,7 +25,8 @@ class TestMcmc(unittest.TestCase):
         # Number of latent ability dimensions (sub-scales).
         self.C = 1
         # Using 2-PL model with fixed discrimination and no asymptote for all items.
-        self.x, self.theta, self.b, self.c = sim.generate_dichotomous_responses(self.P, self.I, self.C, asymptote=0)
+        self.x, self.theta, self.b, self.c, self.v = \
+            sim.generate_dichotomous_responses(self.P, self.I, self.C, asymptote=0)
 
     def test_mcmc_with_indicator_small_temperature_decreases_likelihood(self):
         num_bins = 10  # IRF resolution (#bins).

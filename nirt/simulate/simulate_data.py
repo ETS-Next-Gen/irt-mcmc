@@ -48,7 +48,7 @@ def generate_dichotomous_responses(num_persons, num_items, num_latent_dimensions
     # Generate item responses (the observed data) (3PL model).
     p_correct = three_pl_model(theta[:, c], a, b, asymptote)
     x = np.random.binomial(1, p=p_correct)
-    return x, theta, b, c
+    return x, theta, b, c, v
 
 
 def generate_response_times(num_persons, num_items):

@@ -24,7 +24,7 @@ class TestSolver(unittest.TestCase):
         asym = 0  # 0.25
         discrimination = 1
 
-        x, theta, b, c = sim.generate_dichotomous_responses(P, I, C, asymptote=asym, discrimination=discrimination)
+        x, theta, b, c, v = sim.generate_dichotomous_responses(P, I, C, asymptote=asym, discrimination=discrimination)
 
         assert x.shape == (P, I)
         assert theta.shape == (P, C)

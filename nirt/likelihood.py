@@ -22,7 +22,7 @@ class Likelihood:
         self.grid = [irf[np.where(item_classification == c)[0][0]].grid for c in range(max(item_classification) + 1)]
         self._irf = irf
 
-    def log_likelihood(self, theta, active=None):
+    def log_likelihood(self, theta, v, active=None):
         """
         Returns the log likelihood of person responses (self._x) given theta for an active subset of persons and
         dimensions. This is the sum of the individual person-dimension likelihood.
@@ -35,9 +35,9 @@ class Likelihood:
         Returns:
             log likelihood of person responses (self._x) given theta.
         """
-        return sum(self.log_likelihood_term(theta, active=active))
+        return sum(self.log_likelihood_term(theta, v, active=active))
 
-    def log_likelihood_term(self, theta, active=None):
+    def log_likelihood_term(self, theta, v, active=None):
         """
         Returns an array of log likelihoods of person responses (self._x) given theta for an active subset of persons
         and dimensions. This is the sum of the individual person-dimension likelihood for each component of theta
@@ -71,9 +71,11 @@ class Likelihood:
         # print("item_measures_dimension", item_measures_dimension.shape)
         ll = np.sum(y * item_measures_dimension, axis=1)
         # print("ll", ll)
-        return ll
+        # Prior of theta[p, c] = log(N(0, v[c]))
+        prior = - theta ** 2 / v[active[1]]
+        return ll + prior
 
-    def parameter_mle(self, p: int, c: int, max_iter: int = 10) -> float:
+    def parameter_mle(self, p: int, c: int, v: np.array, max_iter: int = 10) -> float:
         """
         Returns the Maximum Likelihood Estimator (MLE) of a single parameter theta[p, c] (person's c-dimension
         ability). Uses at most 'max_iter' iterations of Brent's method (bisection bracketing) for likelihood
@@ -89,7 +91,8 @@ class Likelihood:
         See also: https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.minimize_scalar.html
         """
         active = (np.array([p]), np.array([c]))
-        def f(theta_pc): return -self.log_likelihood_term(np.array([theta_pc]), active=active)[0]
+#        def f(theta_pc): return -self.log_likelihood_term(np.array([theta_pc]), v, active=active)[0]
+        def f(theta_pc): return -self._total_likelihood_sum_implementation(theta_pc, p, c, v)
 
         # The likelihood function may be non-concave but has piecewise smooth. Use a root finder in every interval,
         # then find the minimum of all interval minima. Benchmarked to be fast (see debugging_log_likelihood notebook).
@@ -109,13 +112,13 @@ class Likelihood:
         # print(min((result.fun, result.x) for result in interval_min_result))
         return min((result.fun, result.x) for result in interval_min_result)[1]
 
-    def plot_person_log_likelihood(self, ax, p, c):
+    def plot_person_log_likelihood(self, ax, p, c, v):
         # Get x-axis from the grid of one of the items measuring dimension c.
         i = np.where(self._c == c)[0][0]
         irf = self._irf[i]
         x = irf.x
         t = np.linspace(x[0], x[-1], 10 * len(x) + 1)
-        likelihood = self.log_likelihood_term(t, active=(np.array([p] * t.size), np.array([c] * t.size)))
+        likelihood = self.log_likelihood_term(t, v, active=(np.array([p] * t.size), np.array([c] * t.size)))
         L = irf.interpolant(t)
         ax.plot(t, L, "b-")
         for x in irf.x:
@@ -127,6 +130,13 @@ class Likelihood:
         ax.set_ylabel(r"$\log P(\theta_{pc}|X)$")
         ax.set_title(r"Log Likelihood person {} dimension {}".format(p, c))
 
+    def _total_likelihood_sum_implementation(self, t, p, c, v):
+        x = self._x[p]
+        L = sum(x[i] * _clipped_log(self._irf[i].interpolant(t)) +
+                (1 - x[i]) * _clipped_log(1 - self._irf[i].interpolant(t))
+                for i in range(len(x)))
+        prior = - t ** 2 / v[c]
+        return L + prior
 
 def initial_guess(x, c):
     """Returns the initial guess for theta."""

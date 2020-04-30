@@ -48,7 +48,7 @@ class TestMcmc(unittest.TestCase):
         t = theta_active.reshape(len(sample), self.C)
         grid = [nirt.grid.Grid(t[:, c], num_bins) for c in range(self.C)]
         irf = [nirt.irf.ItemResponseFunction(grid[self.c[i]], self.x[:, i]) for i in range(self.I)]
-        likelihood = nirt.likelihood.Likelihood(self.x, self.c, grid, irf)
+        likelihood = nirt.likelihood.Likelihood(self.x, self.c, irf)
 
         # Run Metropolis sweeps and see if likelihood decreases before arriving at the stationary distribution.
         energy = likelihood.log_likelihood_term(theta_active, active)

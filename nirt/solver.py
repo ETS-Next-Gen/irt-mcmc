@@ -10,7 +10,8 @@ from typing import Tuple
 
 class Solver:
     """The main IRT solver that alternates between IRF calculation given theta and theta MCMC estimation given IRT."""
-    def __init__(self, x: np.array, item_classification: np.array, num_sweeps: int = 10, num_iterations: int = 10):
+    def __init__(self, x: np.array, item_classification: np.array, num_sweeps: int = 10, num_iterations: int = 10,
+                 initial_sample_per_bin: int = 20, method: str = "quantile"):
         self.x = x
         self.c = item_classification
         self.P = self.x.shape[0]
@@ -19,6 +20,9 @@ class Solver:
         self._num_iterations = num_iterations
         # Number of item classes. Assumes 'item_classification' contain integers in [0..C-1].
         self.C = max(item_classification) + 1
+        self._initial_sample_per_bin = initial_sample_per_bin
+        self.irf = None
+        self._method = method
 
     def solve(self) -> np.array:
         """Solves the IRT model and returns thetas. This is the main call that runs an outer loop of simulated
@@ -34,7 +38,6 @@ class Solver:
         # An indicator array stating whether each person dimension is currently being estimated. In the current scheme
         # an entire person is estimated (all dimensions) or not (no dimensions), but this supports any set of
         # (person, dimension) pairs.
-        is_active = np.zeros((self.P, self.C), dtype=bool)
         theta = nirt.likelihood.initial_guess(self.x, self.c)
         likelihood = None
 
@@ -42,9 +45,8 @@ class Solver:
             # Activate a sample of persons so that the (average) person bin size remains constant during continuation.
             # Note that the temperature may continue decreasing even after all persons have been activated.
             if inactive.size:
-                sample_size = 5 * num_bins
+                sample_size = self._initial_sample_per_bin * num_bins
                 sample = np.random.choice(inactive, size=min(inactive.size, sample_size), replace=False)
-                is_active[sample] = True
                 # Initialize newly activated persons' thetas by MLE once we have IRFs and thus a likelihood function.
                 if likelihood:
                     theta[sample] = [[likelihood.parameter_mle(p, c, max_iter=5) for c in range(self.C)] for p in sample]
@@ -52,34 +54,56 @@ class Solver:
                 inactive = np.setdiff1d(inactive, sample)
                 logger.info("Sampled {} persons, total active {}, num_bins {} T {}".format(
                     sample_size, len(active), num_bins, temperature))
-            theta[is_active], likelihood = \
-                self._solve_at_resolution(num_bins, temperature, theta[is_active], np.where(is_active))
+            # Index arrays for converting theta[active] into flattened form and back.
+            person_ind = np.tile(active[:, None], self.C).flatten()
+            c_ind = np.tile(np.arange(self.C)[None, :], len(active)).flatten()
+            active_ind = (person_ind, c_ind)
+            for iteration in range(self._num_iterations):
+                self.irf = self._update_irf(num_bins, theta[active])
+                theta[active], likelihood = \
+                    self._improve_theta_by_mcmc(self.irf, theta[active], active_ind, temperature)
             num_bins = min(2 * num_bins, self.P // 10)
             temperature *= 0.5
 
         return theta
 
-    def _solve_at_resolution(self, num_bins: int, temperature: float, theta: np.array, active: np.array) -> \
+    def _improve_theta_by_mcmc(self, irf: np.array, theta_active: np.array, active_ind: np.array,
+                               temperature: float) -> \
             Tuple[np.array, nirt.likelihood.Likelihood]:
         logger = logging.getLogger("Solver.solve_at_resolution")
-        for iteration in range(self._num_iterations):
-            # Build IRFs from theta values. Assuming the same resolution for all item IRFs, so this is an I x n array.
-            # Bin persons by theta value into n equal bins (percentiles). Note: theta is a vector of all variables we're
-            # changing. Reshape it to #active_people x C so we can build separate bin grids for different dimensions.
-            t = theta.reshape(theta.size // self.C, self.C)
-            grid = [nirt.grid.Grid(t[:, c], num_bins) for c in range(self.C)]
-            irf = [nirt.irf.ItemResponseFunction(grid[self.c[i]], self.x[:, i]) for i in range(self.num_items)]
-
-            # Improve theta estimates by Metropolis sweeps.
-            likelihood = nirt.likelihood.Likelihood(self.x, self.c, grid, irf)
-            energy = likelihood.log_likelihood_term(theta, active)
-            theta_estimator = nirt.mcmc.McmcThetaEstimator(likelihood, temperature)
+        # Improve theta estimates by Metropolis sweeps.
+        likelihood = nirt.likelihood.Likelihood(self.x, self.c, irf)
+        # A vector of size len(theta_active) * C containing all person parameters.
+        t = theta_active.flatten()
+        energy = likelihood.log_likelihood_term(t, active_ind)
+        theta_estimator = nirt.mcmc.McmcThetaEstimator(likelihood, temperature)
+        ll = sum(energy)
+        logger.info("log-likelihood {:.2f}".format(ll))
+        for sweep in range(self._num_sweeps):
+            ll_old = ll
+            t, energy = theta_estimator.estimate(t, active=active_ind, energy=energy)
             ll = sum(energy)
-            logger.info("log-likelihood {:.2f}".format(ll))
-            for sweep in range(self._num_sweeps):
-                ll_old = ll
-                theta, energy = theta_estimator.estimate(theta, active=active, energy=energy)
-                ll = sum(energy)
-                logger.info("MCMC sweep {:2d} log-likelihood {:.4f} increase {:.2f} accepted {:.2f}%".format(
-                    sweep, sum(energy), ll - ll_old, 100 * theta_estimator.acceptance_fraction))
-        return theta, likelihood
+            logger.info("MCMC sweep {:2d} log-likelihood {:.4f} increase {:.2f} accepted {:.2f}%".format(
+                sweep, sum(energy), ll - ll_old, 100 * theta_estimator.acceptance_fraction))
+        return t.reshape(theta_active.shape), likelihood
+
+    def _update_irf(self, num_bins: int, theta_active: np.array) -> np.array:
+        """
+        Builds IRFs from theta values. Assuming the same resolution for all item IRFs, so this is an I x n array.
+        Bin persons by theta value into n equal bins (percentiles). Note: theta is a vector of all variables we're
+        changing. Reshape it to #active_people x C so we can build separate bin grids for different dimensions.
+
+        Args:
+            num_bins:
+            theta_active:
+
+        Returns:
+
+        """
+        logger = logging.getLogger("Solver.solve_at_resolution")
+        # Build IRFs from theta values. Assuming the same resolution for all item IRFs, so this is an I x n array.
+        # Bin persons by theta value into n equal bins (percentiles). Note: theta is a vector of all variables we're
+        # changing. Reshape it to #active_people x C so we can build separate bin grids for different dimensions.
+        grid = [nirt.grid.Grid(theta_active[:, c], num_bins, method=self._method) for c in range(self.C)]
+        irf = np.array([nirt.irf.ItemResponseFunction(grid[self.c[i]], self.x[:, i]) for i in range(self.num_items)])
+        return irf

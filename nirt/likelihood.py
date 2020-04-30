@@ -16,10 +16,10 @@ class Likelihood:
     """Calculates the likelihood P(theta|X) of theta given (theta) given X. With a uniform prior, this is proportional
     to P(X|theta)."""
 
-    def __init__(self, x, item_classification, grid, irf):
+    def __init__(self, x, item_classification, irf):
         self._c = item_classification
         self._x = x
-        self.grid = grid
+        self.grid = [irf[np.where(item_classification == c)[0][0]].grid for c in range(max(item_classification) + 1)]
         self._irf = irf
 
     def log_likelihood(self, theta, active=None):
@@ -56,23 +56,21 @@ class Likelihood:
         # Evaluate the IRF for all active persons and all items first. It's a slight waste but can be vectorized into
         # matrix shape. (Could potentially also vectorize the loop over irf_func entries if we can vectorize IRF
         # interpolation.)
-        #print("theta", theta)
+        # print("theta", theta)
+        # print('active', active)
         p = np.array([irf.interpolant(theta) for irf in self._irf]).transpose()
         # Active person responses to all items (M x I).
         x = self._x[active[0]]
-        #print('p', p.shape, 'x', x.shape)
+        # print('p', p.shape, 'x', x.shape)
         y = x * _clipped_log(p) + (1 - x) * _clipped_log(1 - p)
-        # print('theta', theta)
-        # print('active', active)
-        # print('p', p)
-        #print('y', y.shape)
-        # Calculate an indicator array of whether item i measures dimension active[1][j]. Thus only items measuring
+        # print('y', y.shape)
+        # Calculate an indicator array of whether item i measures dimension active[1][j]. Only the items measuring
         # the relevant dimension are taken into account in the log likelihood sum of this active person entry.
-        #print("active[1]", active[1].shape)
+        # print("active[1]", active[1].shape)
         item_measures_dimension = (np.tile(self._c, (active[0].size, 1)) == active[1][:, None])
-        #print("item_measures_dimension", item_measures_dimension.shape)
+        # print("item_measures_dimension", item_measures_dimension.shape)
         ll = np.sum(y * item_measures_dimension, axis=1)
-        #print("ll", ll)
+        # print("ll", ll)
         return ll
 
     def parameter_mle(self, p: int, c: int, max_iter: int = 10) -> float:
@@ -96,27 +94,38 @@ class Likelihood:
         # The likelihood function may be non-concave but has piecewise smooth. Use a root finder in every interval,
         # then find the minimum of all interval minima. Benchmarked to be fast (see debugging_log_likelihood notebook).
         def f_interval(theta_pc, left, right): return f(theta_pc) if left < theta_pc and theta_pc < right else _LARGE
-        e = self.grid[c].endpoint
+        i = np.where(self._c == c)[0][0]
+        x = self._irf[i].x
         interval_min_result = \
-            (scipy.optimize.minimize_scalar(f, method="bounded", bounds=(e[j], e[j + 1]), bracket=(e[j], e[j + 1]),
+            (scipy.optimize.minimize_scalar(f, method="bounded", bounds=(x[j], x[j + 1]), bracket=(x[j], x[j + 1]),
                                             options={"maxiter": max_iter})
-             for j in range(len(e) - 1))
+             for j in range(len(x) - 1))
         # The result struct also contains the function value, which could be useful for further MCMC steps, but
         # for now just returning the root value.
+        interval_min_result = list(interval_min_result)
+        # print('interval_min_result', interval_min_result)
+        # for result in interval_min_result:
+        #     print((result.fun, result.x))
+        # print(min((result.fun, result.x) for result in interval_min_result))
         return min((result.fun, result.x) for result in interval_min_result)[1]
 
     def plot_person_log_likelihood(self, ax, p, c):
         # Get x-axis from the grid of one of the items measuring dimension c.
-        i = np.where(self._c == c)[0]
-        x = self._irf[i].x
-        t = np.linspace(self.x[0], self.x[-1], 10 * len(x) + 1)
+        i = np.where(self._c == c)[0][0]
+        irf = self._irf[i]
+        x = irf.x
+        t = np.linspace(x[0], x[-1], 10 * len(x) + 1)
         likelihood = self.log_likelihood_term(t, active=(np.array([p] * t.size), np.array([c] * t.size)))
-        ax.plot(t, self.interpolant(t), "b-")
-        ax.plot(self.x, self.y, "ro")
-        plt.plot(t, likelihood, "b-")
-        plt.xlabel(r"$\theta$")
-        plt.ylabel(r"$\log P(\theta_{pc}|X)$")
-        plt.title(r"Log Likelihood person {} dimension {}".format(p, c))
+        L = irf.interpolant(t)
+        ax.plot(t, L, "b-")
+        for x in irf.x:
+            ax.axvline(x, ymin=min(L), ymax=max(L), marker=".", color="k", markersize=1)
+
+#        ax.plot(self.x, self.y, "ro")
+        ax.plot(t, likelihood, "b-")
+        ax.set_xlabel(r"$\theta$")
+        ax.set_ylabel(r"$\log P(\theta_{pc}|X)$")
+        ax.set_title(r"Log Likelihood person {} dimension {}".format(p, c))
 
 
 def initial_guess(x, c):

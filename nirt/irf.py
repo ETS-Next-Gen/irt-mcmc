@@ -53,6 +53,7 @@ class ItemResponseFunction:
             ax: figure axis to draw in.
             title: str, optional, default: None. Plot title.
             label: str, optional. Default: None. Plot line label.
+            color: str, optional. Default: None.
 
         Returns: None.
         """

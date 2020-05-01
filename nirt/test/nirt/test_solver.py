@@ -68,9 +68,8 @@ class TestSolver(unittest.TestCase):
         X, theta, b, c, v = sim.generate_dichotomous_responses(P, I, C, asymptote=asym, discrimination=discrimination)
 
         solver = nirt.solver.Solver(X, c)
-        theta_approx = solver.solve()
+        theta_approx, _ = solver.solve()
 
-        print(theta)
         assert theta_approx.shape == theta.shape
 
     @unittest.skip

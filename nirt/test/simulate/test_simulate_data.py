@@ -1,12 +1,10 @@
 import logging
 import nirt.simulate.simulate_data as sim
-import nirt.solver
 import numpy as np
 import unittest
 
 
-class TestSolver(unittest.TestCase):
-
+class TestSimulatedData(unittest.TestCase):
     def setUp(self) -> None:
         for handler in logging.root.handlers[:]: logging.root.removeHandler(handler)
         logging.basicConfig(level=logging.WARN, format="%(levelname)-8s %(message)s", datefmt="%a, %d %b %Y %H:%M:%S")

@@ -10,7 +10,7 @@ from typing import Tuple
 
 class Solver:
     """The main IRT solver that alternates between IRF calculation given theta and theta MCMC estimation given IRT."""
-    def __init__(self, x: np.array, item_classification: np.array, num_sweeps: int = 10, num_iterations: int = 10,
+    def __init__(self, x: np.array, item_classification: np.array, num_sweeps: int = 10, num_iterations: int = 3,
                  initial_sample_per_bin: int = 20, method: str = "quantile", improve_theta_method: str = "mcmc"):
         self.x = x
         self.c = item_classification
@@ -25,22 +25,21 @@ class Solver:
         self._method = method
         self._improve_theta_method = improve_theta_method
 
-    def solve(self) -> np.array:
+    def solve(self, initial_temperature=1, final_temperature=0.5, max_mle_iter=3) -> np.array:
         """Solves the IRT model and returns thetas. This is the main call that runs an outer loop of simulated
         annealing and an inner loop of IRF building + MCMC sweeps."""
         logger = logging.getLogger("Solver.solve")
-        final_temperature = 0.01
 
         # Continuation/simulated annealing initialization.
         num_bins = 10  # IRF resolution (#bins).
-        temperature = 1  # Simulated annealing temperature.
+        temperature = initial_temperature  # Simulated annealing temperature.
+        v = np.ones(self.C, )  # Fixed theta variance in every dimension.
         inactive = np.arange(self.P, dtype=int)
         active = np.array([], dtype=int)
         # An indicator array stating whether each person dimension is currently being estimated. In the current scheme
         # an entire person is estimated (all dimensions) or not (no dimensions), but this supports any set of
         # (person, dimension) pairs.
         theta = nirt.likelihood.initial_guess(self.x, self.c)
-        v = np.var(theta[active], axis=0) ** 2
         likelihood = None
         improve_theta = self._improve_theta_factory(self._improve_theta_method)
 
@@ -52,7 +51,7 @@ class Solver:
                 sample = np.random.choice(inactive, size=min(inactive.size, sample_size), replace=False)
                 # Initialize newly activated persons' thetas by MLE once we have IRFs and thus a likelihood function.
                 if likelihood:
-                    theta[sample] = [[likelihood.parameter_mle(p, c, max_iter=5) for c in range(self.C)] for p in sample]
+                    theta[sample] = [[likelihood.parameter_mle(p, c, max_iter=max_mle_iter) for c in range(self.C)] for p in sample]
                 active = np.concatenate((active, sample))
                 inactive = np.setdiff1d(inactive, sample)
                 logger.info("Sampled {} persons, total active {}, num_bins {} T {}".format(
@@ -64,8 +63,7 @@ class Solver:
             for iteration in range(self._num_iterations):
                 self.irf = self._update_irf(num_bins, theta[active])
                 likelihood = nirt.likelihood.Likelihood(self.x, self.c, self.irf)
-                theta[active] = improve_theta(likelihood, theta[active], active_ind, temperature=temperature)
-                v = np.var(theta[active], axis=0) ** 2
+                theta[active] = improve_theta(likelihood, theta[active], v, active_ind, temperature=temperature)
             num_bins = min(2 * num_bins, self.P // 10)
             temperature *= 0.5
 
@@ -80,11 +78,13 @@ class Solver:
             raise Exception("Unsupported theta improvement algorithm {}".format(kind))
 
     def _improve_theta_by_mle(self,
-                               likelihood: nirt.likelihood.Likelihood,
-                               theta_active: np.array,
-                               v: np.array,
-                               active_ind: np.array):
-        return np.array([likelihood.parameter_mle(p, c, v, max_iter=5) for p, c in zip(*active_ind)])
+                              likelihood: nirt.likelihood.Likelihood,
+                              theta_active: np.array,
+                              v: np.array,
+                              active_ind: np.array,
+                              **kwargs):
+        return np.array([likelihood.parameter_mle(p, c, v, max_iter=5) for p, c in zip(*active_ind)]).reshape(
+            theta_active.shape)
 
     def _improve_theta_by_mcmc(self,
                                likelihood: nirt.likelihood.Likelihood,

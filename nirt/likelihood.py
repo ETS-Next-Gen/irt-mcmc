@@ -138,6 +138,7 @@ class Likelihood:
         prior = - t ** 2 / v[c]
         return L + prior
 
+
 def initial_guess(x, c):
     """Returns the initial guess for theta."""
     # Person means for each sub-scale (dimension): P x C

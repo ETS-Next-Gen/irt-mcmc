@@ -4,7 +4,11 @@ import numpy.matlib
 from scipy.stats import invgamma
 
 
-def generate_dichotomous_responses(num_persons, num_items, num_latent_dimensions, asymptote=0.25, discrimination=1):
+def generate_dichotomous_responses(num_persons, num_items: int,
+                                   num_latent_dimensions: int,
+                                   asymptote: float = 0.25,
+                                   discrimination: int = 1,
+                                   fixed_variance: bool = True):
     """
     Generates simulated parametric IRT dichotomous item response data. Generates binary item responses. Assumes person
     abilities theta[:,c], c=1,...,C follows a N(0, InvGamma(1,1)) distribution. Item difficulties are uniformly spaced.
@@ -17,16 +21,23 @@ def generate_dichotomous_responses(num_persons, num_items, num_latent_dimensions
         num_latent_dimensions: int, number of item classes = number of latest ability dimensions.
         discrimination: item discrimination factor.
         asymptote: float, probability of guessing = asymptotic IRF value at theta -> -infinity.
+        fixed_variance: bool, whether theta variance is fixed to 1 (i.e. theta ~ N(0,1)) or random, inverse-gamma
+            distributed.
 
     Returns:
         x: array<float>, shape=(num_persons, num_items) binary item response matrix.
         theta: array<float>, shape=(P, C) latent person ability matrix.
+        b: array<float>, shape=(I,) item difficulty vector.
         c: (I,): array<int> item classification (0 <= c[i] < C).
+        v: (C,): array<float> latent person ability variances in each sub-scale.
     """
     # Generate latent ability distribution variances.
     alpha_theta, beta_theta = 1, 1
-    rv = invgamma(a=alpha_theta, scale=beta_theta)
-    v = rv.rvs(num_latent_dimensions)
+    if fixed_variance:
+        v = np.ones(num_latent_dimensions)
+    else:
+        rv = invgamma(a=alpha_theta, scale=beta_theta)
+        v = rv.rvs(num_latent_dimensions)
 
     # Generate normally distributed student latent abilities. theta_c ~ N(0, invgamma(a_c,b_c))
     cov = np.diag(v)

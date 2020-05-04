@@ -1,6 +1,6 @@
 import logging
 import nirt.simulate.simulate_data as sim
-import nirt.solver
+import nirt.solver_refinement
 import numpy as np
 import unittest
 
@@ -67,7 +67,7 @@ class TestSolver(unittest.TestCase):
         discrimination = 1
         X, theta, b, c, v = sim.generate_dichotomous_responses(P, I, C, asymptote=asym, discrimination=discrimination)
 
-        solver = nirt.solver.Solver(X, c)
+        solver = nirt.solver_refinement.SolverRefinement(X, c)
         theta_approx, _ = solver.solve()
 
         assert theta_approx.shape == theta.shape
@@ -84,7 +84,7 @@ class TestSolver(unittest.TestCase):
         asym = 0  # 0.25
         discrimination = 1
         X, theta, b, c, v = sim.generate_dichotomous_responses(P, I, C, asymptote=asym, discrimination=discrimination)
-        solver = nirt.solver.Solver(X, c)
+        solver = nirt.solver_refinement.SolverRefinement(X, c)
         theta = solver.solve()
         print(theta)
         assert theta == 0

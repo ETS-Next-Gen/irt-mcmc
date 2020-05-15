@@ -38,7 +38,7 @@ class TestSolver(unittest.TestCase):
         for k, P in enumerate(100 * 4 ** np.arange(num_p)):
             e = [0] * num_experiments
             for experiment in range(num_experiments):
-                X, theta, b, c, v = \
+                X, theta, b, c = \
                     sim.generate_dichotomous_responses(P, I, C, asymptote=asym, discrimination=discrimination)
 
                 # Initial guess for thetas.
@@ -72,10 +72,10 @@ class TestSolver(unittest.TestCase):
         # Using 2-PL model with fixed discrimination and no asymptote for all items.
         asym = 0  # 0.25
         discrimination = 1
-        X, theta, b, c, v = sim.generate_dichotomous_responses(P, I, C, asymptote=asym, discrimination=discrimination)
+        X, theta, b, c = sim.generate_dichotomous_responses(P, I, C, asymptote=asym, discrimination=discrimination)
 
         solver = nirt.solver_refinement.SolverRefinement(X, c)
-        theta_approx, _ = solver.solve()
+        theta_approx = solver.solve()
 
         assert theta_approx.shape == theta.shape
 
@@ -89,18 +89,18 @@ class TestSolver(unittest.TestCase):
         # Using 2-PL model with fixed discrimination and no asymptote for all items.
         asym = 0  # 0.25
         discrimination = 1
-        X, theta, b, c, v = sim.generate_dichotomous_responses(P, I, C, asymptote=asym, discrimination=discrimination)
+        X, theta, b, c = sim.generate_dichotomous_responses(P, I, C, asymptote=asym, discrimination=discrimination)
 
         recorder = nirt.run_recorder.RunRecorder()
         solver = nirt.solver_refinement.SolverRefinement(X, c, recorder=recorder)
-        theta_approx, _ = solver.solve()
+        theta_approx = solver.solve()
 
-        assert recorder.theta.keys() == set([0, 4, 8]), \
+        assert recorder.theta.keys() == set([0, 4, 8, 16]), \
             "unexpected recorder theta key set {}".format(recorder.theta.keys())
         assert len(recorder.theta[0]) == 1
         assert all(len(recorder.theta[r]) == 2 for r in recorder.theta.keys() if r != 0)
 
-        assert recorder.irf.keys() == set([4, 8]), \
+        assert recorder.irf.keys() == set([4, 8, 16]), \
             "unexpected recorder IRF key set {}".format(recorder.irf.keys())
         assert all(len(recorder.irf[r]) == 2 for r in recorder.irf.keys() if r != 0)
 
@@ -115,7 +115,7 @@ class TestSolver(unittest.TestCase):
         # Using 2-PL model with fixed discrimination and no asymptote for all items.
         asym = 0  # 0.25
         discrimination = 1
-        X, theta, b, c, v = sim.generate_dichotomous_responses(P, I, C, asymptote=asym, discrimination=discrimination)
+        X, theta, b, c = sim.generate_dichotomous_responses(P, I, C, asymptote=asym, discrimination=discrimination)
         solver = nirt.solver_refinement.SolverRefinement(X, c)
         theta = solver.solve()
         print(theta)

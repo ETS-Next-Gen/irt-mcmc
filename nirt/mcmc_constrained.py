@@ -1,15 +1,20 @@
 """Estimates theta given IRFs using Monte Carlo Markov Chain (MCMC) simulation to approximate the maximum likelihood
-estimator for theta."""
+estimator for theta. Keeps the constraint that the IRF is consistent with the theta values; that is, the IRF is also
+updated upon changes to a theta's bin. Supports quantile grids only."""
 import logging
 import numpy as np
 import nirt.likelihood
 from typing import Tuple
 
 
-class McmcThetaEstimator:
+class McmcConstrainedThetaEstimator:
     """Estimates theta given IRFs using Monte Carlo Markov Chain (MCMC) simulation to approximate the maximum likelihood
-    estimator for theta"""
+    estimator for theta.
+
+    Keeps the constraint that the IRF is consistent with the theta values; that is, the IRF is also
+    updated upon changes to a theta's bin. Supports quantile grids only."""
     def __init__(self, likelihood: nirt.likelihood.Likelihood, temperature: float) -> None:
+        """Likelihood's IRF field will be mutated by this object."""
         self._likelihood = likelihood
         self.temperature = temperature
         # Standard deviation of proposal steps = average bin size in that dimension.

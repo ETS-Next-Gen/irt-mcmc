@@ -1,4 +1,5 @@
-"""The main IRT solver that alternates between IRF calculation given theta and theta MCMC estimation given IRT."""
+"""The main IRT solver that alternates between IRF calculation given theta and theta MCMC estimation given IRT.
+The person population is down-sampled and gradually up-sampled as IRF resolution is refined."""
 import logging
 import nirt.irf
 import nirt.grid
@@ -9,20 +10,20 @@ import nirt.theta_improvement
 import numpy as np
 
 
-class SolverSimulatedAnnealing(nirt.solver.Solver):
+class SolverSampledSimulatedAnnealing(nirt.solver.Solver):
     """The main IRT solver that alternates between IRF calculation given theta and theta MCMC estimation given IRT."""
     def __init__(self, x: np.array, item_classification: np.array,
                  grid_method: str = "quantile", improve_theta_method: str = "mcmc", num_iterations: int = 3,
                  num_theta_sweeps: int = 10, initial_temperature: int = 1, final_temperature: float = 0.5,
                  initial_sample_per_bin: int = 20):
-        super(SolverSimulatedAnnealing, self).__init__(
+        super(SolverSampledSimulatedAnnealing, self).__init__(
             x, item_classification, grid_method=grid_method, improve_theta_method=improve_theta_method,
             num_iterations=num_iterations, num_theta_sweeps=num_theta_sweeps)
         self._initial_temperature = initial_temperature
         self._final_temperature = final_temperature
         self._initial_sample_per_bin = initial_sample_per_bin
 
-    def solve(self) -> np.array:
+    def _solve(self, theta) -> np.array:
         """Solves the IRT model and returns thetas. This is the main call that runs an outer loop of simulated
         annealing and an inner loop of IRF building + MCMC sweeps."""
         logger = logging.getLogger("Solver.solve")
@@ -30,13 +31,11 @@ class SolverSimulatedAnnealing(nirt.solver.Solver):
         # Continuation/simulated annealing initialization.
         num_bins = 10  # IRF resolution (#bins).
         temperature = self._initial_temperature  # Simulated annealing temperature.
-        v = np.ones(self.C, )  # Fixed theta variance in every dimension.
         inactive = np.arange(self.P, dtype=int)
         active = np.array([], dtype=int)
         # An indicator array stating whether each person dimension is currently being estimated. In the current scheme
         # an entire person is estimated (all dimensions) or not (no dimensions), but this supports any set of
         # (person, dimension) pairs.
-        theta = nirt.likelihood.initial_guess(self.x, self.c)
         likelihood = None
         theta_improver = nirt.theta_improvement.theta_improver_factory(
             self._improve_theta_method, self._num_theta_sweeps, temperature=temperature)
@@ -62,8 +61,8 @@ class SolverSimulatedAnnealing(nirt.solver.Solver):
             for iteration in range(self._num_iterations):
                 self.irf = self._update_irf(num_bins, theta[active])
                 likelihood = nirt.likelihood.Likelihood(self.x, self.c, self.irf)
-                theta[active], _ = theta_improver.run(likelihood, theta[active], v, active_ind)
+                theta[active] = theta_improver.run(likelihood, theta[active], active_ind)
             num_bins = min(2 * num_bins, self.P // 10)
             temperature *= 0.5
 
-        return theta, v
+        return theta

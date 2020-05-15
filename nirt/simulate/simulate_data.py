@@ -7,8 +7,7 @@ from scipy.stats import invgamma
 def generate_dichotomous_responses(num_persons, num_items: int,
                                    num_latent_dimensions: int,
                                    asymptote: float = 0.25,
-                                   discrimination: int = 1,
-                                   fixed_variance: bool = True):
+                                   discrimination: int = 1):
     """
     Generates simulated parametric IRT dichotomous item response data. Generates binary item responses. Assumes person
     abilities theta[:,c], c=1,...,C follows a N(0, InvGamma(1,1)) distribution. Item difficulties are uniformly spaced.
@@ -21,26 +20,16 @@ def generate_dichotomous_responses(num_persons, num_items: int,
         num_latent_dimensions: int, number of item classes = number of latest ability dimensions.
         discrimination: item discrimination factor.
         asymptote: float, probability of guessing = asymptotic IRF value at theta -> -infinity.
-        fixed_variance: bool, whether theta variance is fixed to 1 (i.e. theta ~ N(0,1)) or random, inverse-gamma
-            distributed.
 
     Returns:
         x: array<float>, shape=(num_persons, num_items) binary item response matrix.
         theta: array<float>, shape=(P, C) latent person ability matrix.
         b: array<float>, shape=(I,) item difficulty vector.
         c: (I,): array<int> item classification (0 <= c[i] < C).
-        v: (C,): array<float> latent person ability variances in each sub-scale.
     """
-    # Generate latent ability distribution variances.
-    alpha_theta, beta_theta = 1, 1
-    if fixed_variance:
-        v = np.ones(num_latent_dimensions)
-    else:
-        rv = invgamma(a=alpha_theta, scale=beta_theta)
-        v = rv.rvs(num_latent_dimensions)
-
-    # Generate normally distributed student latent abilities. theta_c ~ N(0, invgamma(a_c,b_c))
-    cov = np.diag(v)
+    # Generate normally distributed student latent abilities. theta_c ~ N(0, 1)
+    var = np.ones(num_latent_dimensions)
+    cov = np.diag(var)
     theta = np.random.multivariate_normal(np.zeros((num_latent_dimensions,)), cov, num_persons)
 
     # Generate item difficulty parameters.
@@ -59,7 +48,7 @@ def generate_dichotomous_responses(num_persons, num_items: int,
     # Generate item responses (the observed data) (3PL model).
     p_correct = three_pl_model(theta[:, c], a, b, asymptote)
     x = np.random.binomial(1, p=p_correct)
-    return x, theta, b, c, v
+    return x, theta, b, c
 
 
 def generate_response_times(num_persons, num_items):

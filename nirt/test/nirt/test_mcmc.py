@@ -25,7 +25,7 @@ class TestMcmc(unittest.TestCase):
         # Number of latent ability dimensions (sub-scales).
         self.C = 1
         # Using 2-PL model with fixed discrimination and no asymptote for all items.
-        self.x, self.theta, self.b, self.c, self.v = \
+        self.x, self.theta, self.b, self.c = \
             sim.generate_dichotomous_responses(self.P, self.I, self.C, asymptote=0)
 
     def test_mcmc_with_indicator_small_temperature_decreases_likelihood(self):
@@ -52,13 +52,13 @@ class TestMcmc(unittest.TestCase):
 
         # Run Metropolis sweeps and see if likelihood decreases before arriving at the stationary distribution.
         t = theta_active.flatten()
-        energy = likelihood.log_likelihood_term(t, self.v, active=active_ind)
+        energy = likelihood.log_likelihood_term(t, active=active_ind)
         theta_estimator = nirt.mcmc.McmcThetaEstimator(likelihood, temperature)
         ll = sum(energy)
         num_sweeps = 100
         for sweep in range(num_sweeps):
             ll_old = ll
-            t, energy = theta_estimator.estimate(t, self.v, active=active_ind, energy=energy)
+            t, energy = theta_estimator.estimate(t, active=active_ind, energy=energy)
             ll = sum(energy)
             assert ll > ll_old - 1e-3,\
                 "MCMC sweep decreased likelihood from {} to {}".format(ll_old, ll)

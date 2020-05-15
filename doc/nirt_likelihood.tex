@@ -1,0 +1,116 @@
+\documentclass{article}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{authblk}
+\usepackage{algorithm}
+\usepackage{algorithmic}
+
+\newcommand{\bbeta}{\boldsymbol\beta}
+\newcommand{\bt}{\boldsymbol\tau}
+\newcommand{\bta}{\boldsymbol\ta}
+\newcommand{\bY}{\mathbf{Y}}
+\newcommand{\cC}{\mathcal{C}}
+\newcommand{\cG}{\mathcal{G}}
+\newcommand{\st}{v_{\ta}}
+\newcommand{\ta}{\theta}
+\newcommand{\lla}{\longleftarrow}
+\newcommand{\G}{\mathcal{G}}
+\newcommand{\I}{\mathbb{I}}
+\newcommand{\Normal}{\mathcal{N}}
+\newcommand{\R}{\mathbb{R}}
+\newcommand{\bX}{\mathbf{X}}
+
+\title{Non-parametric IRT Model: Likelihood and MCMC}
+\author{}
+
+\begin{document}
+\maketitle
+
+\section{Model Formulation}
+\label{model}
+We assume $P$ persons take a test consisting of $I$ items. For simplicity, items are assumed to be multiple-choice, but polytomous or continuous-scored items could be supported. Person $p$'s response to item $i$ is denoted by the binary $X_{pi}$ ($X_{pi}=1$ is the answer was correct, $0$ otherwise).
+
+\subsection{Unknowns}
+We assume a scalar latent variable $\ta$. Let $\ta_p$ denote person $p$'s unknown ability and $\bta = (\ta_1,\dots,\ta_P)$.
+
+A person's response to item $i$ is modeled by an Item Response Function (IRF) $P_i(\ta;\beta_i)$, where $\beta_i$ is a vector of item parameters. We represent $P_i$ as a numerical function: the $\ta$ domain is covered by a quantile grid (that is, sort the $\theta_p$'s and divide them into $n$ equal bins).
+
+For simplicity, we define $P_i$ as a linear interpolation from its discrete values $\beta_i := \{P_{ij} := P_i(\xi_j)\}_j$ at bin centers. Other, smoother schemes may be substituted (e.g., B-splines, as in \cite{matt_bsplines}).
+
+Thus the unknown model parameters are $\bta$ and $\bbeta := (\beta_1,\dots,\beta_I)$. $n$ controls the IRF resolution, and is treated as a hyperparameter that is increased during estimation: as the $\bta$ estimate improve, we refine our IRF representation.
+
+\subsection{Likelihood}
+The density of $X_{pi}$ can be expressed as 
+\begin{equation}
+  f(x_{pi}|\ta_p;\beta_i) = P_i(\ta_p;\beta_i)^{x_{pi}} \left(1 - P_i(\ta_p;\beta_i)\right)^{1-x_{pi}}\,.
+\end{equation}
+We used here two standard assumptions of IRT \cite{junker}: experimental independence (person responses are independent) and local independence (a person's responses to items are independent). By Bayes' theorem, the posterior distribution of latent abilities given the responses is
+\begin{equation}
+  f(\bta|\bX;\bbeta) \propto\prod_p \prod_i f(X_{pi}|\ta_p;\beta)\,.
+  \label{like}
+\end{equation}
+
+\section{Algorithm}
+\subsection{Initial Guess for $\bta$}
+\label{initial_guess}
+For each person $p$, we calculate the fraction $f_{p}$ of correct responses of $p$ to items, and initialize $\ta^1_{pc}$ to the number of standard deviations away from the mean fraction; namely,
+\begin{eqnarray}
+	f_{p} &=& \frac{\sum_{i} X_{pi}}{P} \\
+	\bar{f} &=& \frac{1}{P} \sum_{p=1}^{P} f_{p} \\
+	\sigma &=& \left(\frac{1}{P^1-1} (f_{p} - \bar{f})^2 \right)^{\frac12} \\
+	\ta^1_{p} &=& \frac{f_{p} - \bar{f}}{\sigma}\,.
+	\label{coarsest_init}
+\end{eqnarray}
+
+\subsection{Updating the IRF: Histogram}
+\label{histogram}
+Given an IRF bin resolution $n$ and an initial guess for $\bta$, we calculate the IRF bin values as a histogram:
+\begin{equation}
+	\label{histogram_const}
+	P_{ij} = \frac{\sum_{p \in A_j} X_{pi}}{|A_j|}\,,\qquad
+	A_j := \left\{ p : \varphi_{j-1} \leq \ta_p < \varphi_j \right\}\,.
+\end{equation}
+Here $\ta \leq \varphi$ for vectors $\ta,\varphi \in \R^C$ is defined as elementwise $\leq$, and $j-1 = (j_1-1,\dots,j_C-1)$.
+More generally, one can replace (\ref{histogram_const}) by a smoother distribution scheme, where each person contributes a term $w X_{pi}$ to the numerator and $w$ to the denominator of its own bin and several neighboring bins $j'$ where $w$ is inversely proportional to $\ta_p - \xi_{j'}$ (this is the transpose operation of a polynomial interpolation from bin centers to $\ta_p$). This may be considered when $P_i$'s representation is smoother.
+
+\subsection{Updating $\bta$: Monte-Carlo Steps}
+\label{metropolis}
+From (\ref{model}) it follows that the complete conditional density of $\ta_p$ is
+\begin{equation}
+  f(\ta_p|rest) \propto \prod_i 
+  P_i(\ta_p;\beta_i)^{x_{pi}}\left(1 - P_i(\ta_p;\beta_i)\right)^{1-x_{pi}}\,.
+  \label{cond_ta}
+\end{equation}
+A Hastings-Metropolis step for $\ta_p$ requires a proposal distribution $q(\ta_*|\ta_p)$. We choose a symmetric $q$ that moves $\ta_p$ by a fraction of its bin size:
+\begin{equation}
+	q(\ta_*|\ta_p) = \Normal(\ta_p, \frac{h}{4})
+	\label{proposal}
+\end{equation}
+where $h$ is the size of the bin $\ta_p$ belongs do.
+
+Similarly to simulated annealing in statistical physics, the temperature $T$ controls the step. For $T = \infty$, we always accept $\ta^*$; $T = 1$ is the standard Metropolis step; as $T \rightarrow 0$, we accept if and only if $\ta^*$ increases (\ref{cond_ta}). The acceptance probability is
+\begin{equation}
+	\alpha_* := \min\left\{1, e^{\log(f(\ta_*|rest)/f(\ta_p|rest))/T} \right\}\,.
+	\label{acceptable}
+\end{equation}
+
+Importantly, the proposed value $\ta_*$ may be in different bin than the current value $\ta_p$, in which case the IRFs in $f(\ta_*|rest)$ should be the {\it updated IRFs} $P^*_j$ corresponding to $\ta_*$. These are easily calculated from the current IRF. Let $k$ be the bin index of $\theta$ and $k_*$ the bin index of $\ta_*$ if $\ta_p$ is replaced by $\ta_*$. 
+
+\begin{itemize}
+	\item For a quantile grid with bin size $m = P/n$, let $j_l$ be the person index of minimum $\theta$ value in bin $l$, $l \not = k$, and
+	$j_k := p$. The updated IRF bin center values are
+	\begin{equation}
+		P^*_{il} = P_{il} + \frac{P_{i,j_{\overline{l+1}}} - P_{i,j_l}}{m}\,\qquad
+		l = \min\left\{ k,k' \right\}, \dots, \max\left\{ k, k' \right\}\,,
+	\end{equation}
+	where  $\overline{l}$ is a cyclic index over $[\min\left\{k,k'\right\},\dots\max\left\{k,k'\right\}]$, that is,
+	$\overline{l} = l$ if $l \leq \max\left\{k,k'\right\}$, and $\overline{l} =  \min\left\{k,k'\right\}$ if $l =  \max\left\{k,k'\right\}+1$.
+	
+	\item For a uniform grid with bin sizes $m_1,\dots,m_n$,
+	{\bf TBA - add details here}
+\end{itemize}
+
+\bibliographystyle{plain}
+\bibliography{irt_mcmc}
+
+\end{document}

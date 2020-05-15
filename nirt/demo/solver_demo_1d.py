@@ -1,4 +1,4 @@
-"""Runs the IRT MCMC solver, version 1 on simulate data: each sub-scale estimation is performed separately,
+"""Runs the IRT MCMC solver version 1 on simulate data: each sub-scale estimation is performed separately,
 since items of different sub-scales are decoupled if we do not assume theta represents latent traits (i.e., we assume
 a one-to-one correspondence between item sub-scales (e.g., Algebra, Geometry, etc.) and report card categories
 (Algebra, Geometry, etc.)."""
@@ -22,7 +22,7 @@ if __name__ == "__main__":
     # Using 2-PL model with fixed discrimination and no asymptote for all items.
     asym = 0  # 0.25
     discrimination = 1
-    X, theta_exact, b, c, v = sim.generate_dichotomous_responses(P, I, C, asymptote=asym, discrimination=discrimination)
+    X, theta_exact, b, c = sim.generate_dichotomous_responses(P, I, C, asymptote=asym, discrimination=discrimination)
 
     solver = nirt.solver.Solver(X, c, num_iterations=5, num_sweeps=10)
     theta = solver.solve()

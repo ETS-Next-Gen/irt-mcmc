@@ -45,7 +45,7 @@ class ItemResponseFunction:
     def __repr__(self):
         return "count {} score {} P {}".format(self.count, self.score, self.probability)
 
-    def plot(self, ax: plt.Axes, title: str = r"Item  Response Function", label: str = None, color: str = None,
+    def plot(self, ax: plt.Axes, title: str = r"Item Response Function", label: str = None, color: str = None,
              xlim=(-nirt.grid.M, nirt.grid.M)) -> None:
         """
         Draws the IRF interpolant and interpolation nodes and values.

@@ -62,13 +62,11 @@ We assume $P$ persons take a test consisting of $I$ items. For simplicity, items
 \subsection{Unknowns}
 Item responses are assumed to be driven by $C$ latent variables $\ta := (\ta_1,\dots,\ta_C)$ representing a person's ability. Let $\ta_p=(\ta_p^1,\dots,\ta_p^C)$ denote person $p$'s unknown ability and $\bta = (\ta_1,\dots,\ta_P)$. We are free to choose $\ta$'s domain $\Omega$; we choose $\Omega := [-M,M]^C$ with a large enough $M$, say, $M = 5$ ($\ta_{i,c}$ may be interpreted as the number of standard deviations away person $i$'s ability is from the average ability in dimension $c$, $c=1,\dots,C$).
 
-A person's response to item $i$ is modeled by an Item Response Function (IRF) $P_i(\ta;\beta_i)$, where $\beta_i$ is a vector of item parameters. We represent $P_i$ as a numerical function: the $\ta$ domain is covered by a uniform grid of with $n$ bins in each dimension and meshsize $h = 2 M / n$. Let $j=(j_1,\dots,j_C)$, $1 \leq j_c \leq n$ be the bin index, $\left\{\xi_j \right\}_j$ be the bin centers, i.e., $\xi_{jc} = -M + (j_c - \frac12) h$. Let $\left\{\varphi_j\right\}_j$ denote all grid points, that is,$\varphi_{jc} = -M + j_c h$, $0 \leq j_c \leq n$.
+A person's response to item $i$ is modeled by an Item Response Function (IRF) $P_i(\ta;\beta_i)$, where $\beta_i$ is a vector of item parameters. We represent $P_i$ as a numerical function: the $\ta$ domain is covered by a uniform grid of with $n$ bins in each dimension and meshsize $h = 2 M / n$. For each dimension $c=1,\dots,C$, .et $j=(j_1,\dots,j_C)$, $1 \leq j_c \leq n$ be the bin index, $\left\{\xi_j{jc} \right\}_{j=1}^n$ be the bin centers, and $\left\{\varphi_j\right\}_{j=0}^n$ denote the grid points, i.e., the bin borders, that is, $\xi_{jc} = (\varphi_{j-1,c} + \varphi{j})/2$. A non-uniform grid may be used instead: we explore adaptive binning in Section~\ref{adaptive_grid}, which can save much computational work. 
 
 For simplicity, we define $P_i$ as a linear interpolation from its discrete values $\beta_i := \{P_{ij} := P_i(\xi_j)\}_j$ at bin centers. Other, smoother schemes may be substituted (e.g., B-splines, as in \cite{matt_bsplines}).
 
 Thus the unknown model parameters are $\bta$ and $\bbeta := (\beta_1,\dots,\beta_I)$. $n$ controls the IRF resolution, and is treated as a hyperparameter that is increased during estimation: as the $\bta$ estimate improve, we refine our IRF representation.
-
-A non-uniform grid may be used instead: we explore adaptive binning in Section~\ref{adaptive_grid}, which can save much computational work. 
 
 \subsection{Likelihood}
 The density of $X_{pi}$ can be expressed as 
@@ -194,6 +192,26 @@ Similarly to simulated annealing in statistical physics, the temperature $T$ con
 	\label{acceptable}
 \end{equation}
 
+Importantly, the proposed value $\ta_*$ may be in different bin than the current value $\ta_p$, in which case the IRF in $f(\ta_*|rest)$ should be the {\it updated IRFs} $P^*_j$ corresponding to $\ta_*$. These are easily calculated from the current IRF. Let $k$ be the bin index of $\theta$ and $k_*$ the bin index of $\ta_*$ if $\ta_p$ is replaced by $\ta_*$. 
+
+\begin{itemize}
+	\item For a quantile grid with bin size $m = P/n$, let $j_l$ be the person index of minimum $\theta$ value in bin $l$, $l \not = k$, and
+	$j_k := p$. The updated IRF bin center values are
+	\begin{equation}
+		P^*_{il} = P_{il} + \frac{P_{i,j_{\overline{l+1}}} - P_{i,j_l}}{m}\,\qquad
+		l = \min\left\{ k,k' \right\}, \dots, \max\left\{ k, k' \right\}\,,
+	\end{equation}
+	where  $\overline{l}$ is a cyclic index over $[\min\left\{k,k'\right\},\dots\max\left\{k,k'\right\}]$, that is,
+	$\overline{l} = l$ if $l \leq max\left\{k,k'\right\}$, and $\overline{l} =  \min\left\{k,k'\right\}$ if $l =  \max\left\{k,k'\right\}+1$.
+	
+	\item For a uniform grid with bin sizes $m_1,\dots,m_n$, update
+	$$ P^*_{ik} = ((m_i=1) P_{ik} + x) / m_i,  $$
+	{\bf TBA - add details here}
+\end{itemize}
+
+ 
+
+
 \begin{algorithm}
 \caption[]{$\ta = {\mbox{Metropolis-Step}}(T, \ta_p, p)$\\\hspace{\textwidth}
 Update a single person parameter given parameters given continuation hyperparameters.}
@@ -251,6 +269,15 @@ A typical target quantity of interest (e.g., in NAEP) is the mean of some functi
 
 \subsection{Adaptive Binning}
 \label{adaptive_grid}
+
+\subsection{Binning Strategy}
+We consider three binning strategies:
+\begin{itemize}
+\item {\bf Uniform.} A uniform grid of with $n$ bins over $[\theta_L^c, \theta_R^c]$ in each dimension $c=1,\dots,C$.  Let $j=(j_1,\dots,j_C)$, $1 \leq j_c \leq n$ be the bin index, $\left\{\xi_j \right\}_j$ be the bin centers, i.e., $\xi_{jc} = -M + (j_c - \frac12) h$. Let $\left\{\varphi_j\right\}_j$ denote all grid points, that is,$\varphi_{jc} = -M + j_c h$, $0 \leq j_c \leq n$.
+\item {\bf Quantile.} 
+\item {\bf IRF-adaptive.}
+\end{itemize}
+
 
 \subsection{Item Types}
 For simplicity, items were assumed to be multiple-choice.

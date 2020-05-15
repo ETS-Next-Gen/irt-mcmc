@@ -26,7 +26,25 @@ class Solver:
         self._num_iterations = num_iterations
         self._num_theta_sweeps = num_theta_sweeps
 
+        # Determine the IRF axis for fixed resolutions.
+        theta = nirt.likelihood.initial_guess(self.x, self.c)
+        theta = (theta - np.mean(theta, axis=0)) / np.std(theta, axis=0)
+        self._xlim = [(theta[:, ci].min() - 1, theta[:, ci].max() + 1) for ci in range(self.C)]
+
     def solve(self) -> np.array:
+        """
+        Runs the solver.
+        Returns: theta estimate.
+        """
+        logger = logging.getLogger("Solver.solve")
+        # Starting from the initial guess (that makes theta approximately standardized), execute continuation steps
+        # of increasingly finer IRF resolution.
+        theta = nirt.likelihood.initial_guess(self.x, self.c)
+        logger.info("Initial guess range [{:.2f}, {:.2f}] mean {:.2f} std {:.2f}".format(
+            theta.min(), theta.max(), np.mean(theta, axis=0)[0], np.std(theta, axis=0)[0]))
+        return self._solve(theta)
+
+    def _solve(self) -> np.array:
         """
         Runs the solver.
         Returns: theta estimate.
@@ -50,7 +68,8 @@ class Solver:
         # Build IRFs from theta values. Assuming the same resolution for all item IRFs, so this is an I x n array.
         # Bin persons by theta value into n equal bins (percentiles). Note: theta is a vector of all variables we're
         # changing. Reshape it to #active_people x C so we can build separate bin grids for different dimensions.
-        grid = [nirt.grid.Grid(theta_active[:, c], num_bins, method=self._method) for c in range(self.C)]
+        grid = [nirt.grid.Grid(theta_active[:, ci], num_bins, method=self._method, xlim=self._xlim[ci])
+                for ci in range(self.C)]
         # for c in range(self.C):
         #     print("c", c, grid[c])
         irf = np.array([nirt.irf.ItemResponseFunction(grid[self.c[i]], self.x[:, i]) for i in range(self.num_items)])

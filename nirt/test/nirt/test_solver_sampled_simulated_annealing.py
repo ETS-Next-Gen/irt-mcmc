@@ -1,11 +1,11 @@
 import logging
 import nirt.simulate.simulate_data as sim
-import nirt.solver_simulated_annealing
+import nirt.solver_sampled_simulated_annealing
 import numpy as np
 import unittest
 
 
-class TestSolverSimulatedAnnealing(unittest.TestCase):
+class TestSolverSampledSimulatedAnnealing(unittest.TestCase):
 
     def setUp(self) -> None:
         for handler in logging.root.handlers[:]: logging.root.removeHandler(handler)
@@ -22,10 +22,10 @@ class TestSolverSimulatedAnnealing(unittest.TestCase):
         # Using 2-PL model with fixed discrimination and no asymptote for all items.
         asym = 0  # 0.25
         discrimination = 1
-        X, theta, b, c, v = sim.generate_dichotomous_responses(P, I, C, asymptote=asym, discrimination=discrimination)
+        X, theta, b, c = sim.generate_dichotomous_responses(P, I, C, asymptote=asym, discrimination=discrimination)
 
-        solver = nirt.solver_simulated_annealing.SolverSimulatedAnnealing(X, c)
-        theta_approx, _ = solver.solve()
+        solver = nirt.solver_sampled_simulated_annealing.SolverSampledSimulatedAnnealing(X, c)
+        theta_approx = solver.solve()
 
         assert theta_approx.shape == theta.shape
 
@@ -40,8 +40,8 @@ class TestSolverSimulatedAnnealing(unittest.TestCase):
         # Using 2-PL model with fixed discrimination and no asymptote for all items.
         asym = 0  # 0.25
         discrimination = 1
-        X, theta, b, c, v = sim.generate_dichotomous_responses(P, I, C, asymptote=asym, discrimination=discrimination)
-        solver = nirt.solver_simulated_annealing.SolverSimulatedAnnealing(X, c)
+        X, theta, b, c = sim.generate_dichotomous_responses(P, I, C, asymptote=asym, discrimination=discrimination)
+        solver = nirt.solver_sampled_simulated_annealing.SolverSampledSimulatedAnnealing(X, c)
         theta = solver.solve()
         print(theta)
         assert theta == 0

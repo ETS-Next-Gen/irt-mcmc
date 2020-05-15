@@ -23,7 +23,7 @@ class TestLikelihood(unittest.TestCase):
         # Number of latent ability dimensions (sub-scales).
         self.C = 1
         # Using 2-PL model with fixed discrimination and no asymptote for all items.
-        self.x, self.theta, self.b, self.c, self.v = \
+        self.x, self.theta, self.b, self.c = \
             nirt.simulate.simulate_data.generate_dichotomous_responses(self.P, self.I, self.C, asymptote=0)
 
     def test_parameter_mle_maximizes_likelihood(self):
@@ -43,11 +43,11 @@ class TestLikelihood(unittest.TestCase):
             x = irf[i].x
             t = np.linspace(x[0], x[-1], 100 * len(x) + 1)
             active = np.tile([p, c], (len(t), 1))
-            likelihood_values = likelihood.log_likelihood_term(t, self.v, active=(active[:, 0], active[:, 1]))
+            likelihood_values = likelihood.log_likelihood_term(t, active=(active[:, 0], active[:, 1]))
 
             # Verify that we can find the LL maximum with a root finder if we run it with enough iterations.
-            t_mle = likelihood.parameter_mle(p, c, self.v, max_iter=13)
-            likelihood_mle = likelihood.log_likelihood_term(t_mle, self.v, (np.array([p]), np.array([c])))[0]
+            t_mle = likelihood.parameter_mle(p, c, max_iter=13)
+            likelihood_mle = likelihood.log_likelihood_term(t_mle, (np.array([p]), np.array([c])))[0]
             assert likelihood_mle > max(likelihood_values) - 0.005, \
                 "MLE likelihood {} < max likelihood value on a grid {} at p = {}".format(
                     likelihood_mle, max(likelihood_values), p)

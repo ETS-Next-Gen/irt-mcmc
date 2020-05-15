@@ -9,6 +9,7 @@ from typing import Tuple
 
 
 def theta_improver_factory(kind, num_iterations, **kwargs):
+    """A factory method that returns a theta improver instance of kind 'kind'."""
     if kind == "mle":
         return _MleImprover(num_iterations)
     elif kind == "mcmc":
@@ -33,11 +34,13 @@ class _MleImprover:
     def run(self,
             likelihood: nirt.likelihood.Likelihood,
             theta_active: np.array,
-            v: np.array,
             active_ind: np.array) -> \
             Tuple[np.array, nirt.likelihood.Likelihood]:
-        return np.array([likelihood.parameter_mle(p, c, v, max_iter=self._num_iterations)
+        return np.array([likelihood.parameter_mle(p, c, max_iter=self._num_iterations,
+                                                  theta_init=theta_active[p][c])
                          for p, c in zip(*active_ind)]).reshape(theta_active.shape)
+        # return np.array([likelihood.parameter_mle(p, c, max_iter=self._num_iterations)
+        #                  for p, c in zip(*active_ind)]).reshape(theta_active.shape)
 
 
 class _McmcImprover:
@@ -56,21 +59,55 @@ class _McmcImprover:
     def run(self,
             likelihood: nirt.likelihood.Likelihood,
             theta_active: np.array,
-            v: np.array,
             active_ind: np.array) -> \
             Tuple[np.array, nirt.likelihood.Likelihood]:
         logger = logging.getLogger("Solver.solve_at_resolution")
         # Improve theta estimates by Metropolis sweeps.
         # A vector of size len(theta_active) * C containing all person parameters.
         t = theta_active.flatten()
-        energy = likelihood.log_likelihood_term(t, v, active_ind)
+        energy = likelihood.log_likelihood_term(t, active_ind)
         theta_estimator = nirt.mcmc.McmcThetaEstimator(likelihood, self._temperature)
         ll = sum(energy)
         logger.info("log-likelihood {:.2f}".format(ll))
         for sweep in range(self._num_iterations):
             ll_old = ll
-            t, energy = theta_estimator.estimate(t, v, active=active_ind, energy=energy)
+            t, energy = theta_estimator.estimate(t, active=active_ind, energy=energy)
             ll = sum(energy)
             logger.info("MCMC sweep {:2d} log-likelihood {:.4f} increase {:.2f} accepted {:.2f}%".format(
                 sweep, sum(energy), ll - ll_old, 100 * theta_estimator.acceptance_fraction))
-        return t.reshape(theta_active.shape), likelihood
+        return t.reshape(theta_active.shape) #, likelihood
+
+
+class _McmcImprover:
+    """Improves theta by MCMC simulations at a given temperature."""
+    def __init__(self, num_iterations, temperature):
+        """
+        Improves theta by MCMC simulations at a given temperature.
+
+        Args:
+            num_iterations: Number of MCMC iterations.
+            temperature: simulated annlealing temperature for Metropolis-Hastings steps.
+        """
+        self._num_iterations = num_iterations
+        self._temperature = temperature
+
+    def run(self,
+            likelihood: nirt.likelihood.Likelihood,
+            theta_active: np.array,
+            active_ind: np.array) -> \
+            Tuple[np.array, nirt.likelihood.Likelihood]:
+        logger = logging.getLogger("Solver.solve_at_resolution")
+        # Improve theta estimates by Metropolis sweeps.
+        # A vector of size len(theta_active) * C containing all person parameters.
+        t = theta_active.flatten()
+        energy = likelihood.log_likelihood_term(t, active_ind)
+        theta_estimator = nirt.mcmc.McmcThetaEstimator(likelihood, self._temperature)
+        ll = sum(energy)
+        logger.info("log-likelihood {:.2f}".format(ll))
+        for sweep in range(self._num_iterations):
+            ll_old = ll
+            t, energy = theta_estimator.estimate(t, active=active_ind, energy=energy)
+            ll = sum(energy)
+            logger.info("MCMC sweep {:2d} log-likelihood {:.4f} increase {:.2f} accepted {:.2f}%".format(
+                sweep, sum(energy), ll - ll_old, 100 * theta_estimator.acceptance_fraction))
+        return t.reshape(theta_active.shape) #, likelihood

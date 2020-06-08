@@ -1,0 +1,234 @@
+\documentclass{article}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{authblk}
+\usepackage{algorithm}
+\usepackage{algorithmic}
+\usepackage{mathtools}
+
+\DeclarePairedDelimiter{\ceil}{\lceil}{\rceil}
+\DeclarePairedDelimiter\floor{\lfloor}{\rfloor}
+
+\newcommand{\bbeta}{\boldsymbol\beta}
+\newcommand{\bt}{\boldsymbol\tau}
+\newcommand{\bta}{\boldsymbol\ta}
+\newcommand{\cA}{\mathcal{A}}
+\newcommand{\cC}{\mathcal{C}}
+\newcommand{\cE}{\mathcal{E}}
+\newcommand{\cG}{\mathcal{G}}
+\newcommand{\cV}{\mathcal{V}}
+\newcommand{\bY}{\mathbf{Y}}
+\newcommand{\st}{v_{\ta}}
+\newcommand{\ta}{\theta}
+\newcommand{\lla}{\longleftarrow}
+\newcommand{\I}{\mathbb{I}}
+\newcommand{\Normal}{\mathcal{N}}
+\newcommand{\R}{\mathbb{R}}
+\newcommand{\bX}{\mathbf{X}}
+
+\title{Graph Biclustering Algorithms for Detecting Item Exposure}
+
+\author[1]{Oren Livne}
+\affil[1]{Educational Testing Service, 660 Rosedale Road, Attn: MS-12, T-197, Princeton, NJ 08540. Email: olivne@ets.org}
+\date{\today}
+	
+\begin{document}
+\maketitle
+
+\section{Graph-based Statistical Methods for Detecting Item Exposure}
+Item exposure refers to the condition of some examinees having prior access to test questions and/or answers before taking the test (e.g., \cite{Eckerly}). These examinees are hereafter referred ``cheaters'', and the leaked test questions are referred to as ``exposed items''. We consider the problem of finding likely cheater sets and corresponding exposed item sets (multiple such sets may exist, and overlap) based on their response pattern only, without additional information, e.g., a previous test result of the same examinees. Identifying a single response as fraudulent from the data alone is virtually impossible; we assume that a large fraction of the items (20\% - 40\%) were exposed {\bf as in this real-like scenario - third-party company...?}.
+
+Statistical methods for detecting item exposure a hot research topic \cite{test_fraud_book}. In particular, graph-based methods have been suggested. Belov \cite{belov} constructed an unweighted, undirected person similarity graph is formulated based on the $\omega$ response similarity index. An edge is added if and only if the similarity index exceeds a pre-determined significance level. The largest clique is identified, and reported as a cheater set if its size is significantly large (the clique size null distribution is estimated using Monte-Carlo simulations). If so, the clique is from the graph, and the next largest clique is identified; etc. The drawbacks of this method are (a) the graph includes only persons as nodes; items are basically aggregated in the response similarity index, making it hard to detect which items were leaked; and (b) looking for perfect cliques is very restrictive; it depends on the particular similarity index and threshold used to define graph edges. In practice, cheater sets may be near-cliques or strongly connected clusters, where connectivity is not defined by the presence of an edge between two nodes, but when their graph neighborhoods are similar, that is, there are many short paths linking them (whether they are directly connected or not).
+
+In a related field, Girish et al. \cite{collusion_stock_graph_clustering} used graph clustering to detect collusion groups of stock traders. However, the data is different: for each item (stock) there are many ``responses'', i.e., the act of a trader buying or selling stock to another trader. A separate directed graph of trader similarity is constructed for each stock and traders are clustered by a similarity index defined by the number of mutual nearest neighbors.
+
+\section{New Computational Algorithm for Detecting  and Fraudulent Examinees and Exposed Items}
+We propose a new graph-based biclustering approach inspired by {\it multiscale methods} \cite{mg_guide}. We build an bi-partite graph between examinees and items, where edges represent the likelihood of an aberrant response. Examinees that saw the same items will be connected to many mutual items. We find a {\it bi-clustering} of the graph: clustering in one partition, which is tied with clustering in the other. This provides candidate cheater sets and their associated exposed item sets, which are tested for significance and reported if so.
+
+{\bf Aberration graph.} First, we build an undirected {\it bipartite} graph of examinees and items. Let $\theta$ is a person latent ability variable, and $X_{pi}$ is the random variable representing person $p$'s response to item $i$. Suppose that examinee $p$'s ability $\theta_p$, item $i$'s difficulty parameter $\gamma_i$, and subsequently the success probability
+\begin{equation}
+	P_{pi} := P \left [X_{pi}=1 | \theta_p, \gamma_i) \right]\,
+	\label{ppi} 
+\end{equation}
+have been estimated by an IRT model. Then we can define
+\begin{equation}
+  w_{pi} := \frac{1}{P_{pi}^s} \,,
+  \label{weight}
+\end{equation}
+where $s  > 0$ is a hyper-parameter that can be chosen higher or lower to emphasize or de-emphasize highly aberrant responses.
+
+{\bf Graph-based distances.} Next, we construct feature vectors (of dimension 5-10) for each examinee and item. Each feature is obtained by few Gauss-Seidel relaxation sweeps, starting from random vectors  at the nodes, and normalizing the vectors to unit $L_2$ norm after each sweep. Two nodes with small $L_2$ distance have many mutual neighbors and short paths connecting them, i.e., they belong to similar {\it neighorhoods} of the graph, making them more meaningful than the size of the edge weight between them, or the shortest path length. Relaxation-based graph distances were first developed for undirected graphs in \cite{safro} and applied to solving graph Laplacian systems in \cite{lamg}, and to finding near-cliques of descendants sharing the same DNA haplotype in \cite{primal}. In all cases, they successfully identified node similarity structures.
+
+{\bf Biiclustering.} The feature vectors are clustered using a hierarchical k-means algorithm producing {\it miniclusters} of examinees that have 
+
+
+
+We propose a different graph-based biclustering approach inspired by {\it multiscale methods} -- a direct application of \cite[Sec.~10]{msgd}. We build a bipartite graph of persons and items, where edge weights also take into account response times. Assuming cheaters have a faster response time than non-cheaters, they will be more strongly connected to leaked items. We then find a {\it bi-clustering} of the graph: clustering in one partition, which is tied with clustering in the other.
+
+ Here, we apply relaxation-based distances to the bipartite graph, generate a {\it miniclustering} of persons that have small distances, and look for large, strongly-connected clusters. Clusters are allowed to overlap. We believe that this approach is more flexible than looking for exact cliques, and less susceptible to the precise value of edge thresholding.
+
+The paper is organized as follows. Sec.~\ref{model} describes how the graph is constructed from response data. The biclustering algorithm is described in Sec.~\ref{biclustering}. Numerical results are detailed in Sec.~\ref{results}, followed by concluding remarks on the generalization of the method in Sec.~\ref{remarks}.
+
+\section{Aberration Graph}
+\label{model}
+We assume $P$ persons take a test consisting of $I$ items. Let $x_{pi}$ be the score of person $p$ on item $i$. We assume dichotomous items, $x_{mn} \in \left\{0,1\right\}$, although the method is applicable to any type of item scoring (see \ref{remarks}). We define a bipartite graph $\cG = (\cV, \cE)$ consisting of two disjoint sets of nodes (``partitions''), $\{a_1,a_2,\ldots,a_P\}$ for persons, and $\{b_1,b_2,\ldots,b_N\}$ for items with no intra-partition links; the only links are from some $a_p$ to some $b_i$, only when the student response was correct (as collusion does not cover cases where a wrong response is aberrant, i.e., when a person is "throwing the test"), with a weight $w_{pi}$ that reflects the degree of aberration of the student response.
+
+Let $\theta$ is a person latent ability variable, and $X_{pi}$ is the random variable representing person $p$'s response to item $i$. If we somehow estimate person $p$'s ability $\theta_p$ and item $i$'s difficulty parameter $\gamma_i$, and subsequently the success probability
+\begin{equation}
+	P_{pi} := P \left [X_{pi}=1 | \theta_p, \gamma_i) \right]\,,
+	\label{ppi} 
+\end{equation}
+then we can define
+\begin{equation}
+  w_{pi} := \frac{1}{P_{pi}^s} \,,
+  \label{weight}
+\end{equation}
+where $s  > 0$ is a hyper-parameter that can be chosen higher or lower to emphasize or de-emphasize highly aberrant responses. 
+
+This probability-based definition ensures that all graph weights are on the same scale, as weights would otherwise need to be properly normalized across items and/or persons. Computing $P_{pi}$ or $\tilde{P}_{pi}$ generally requires a full Item Response Theory (IRT) model; see Sec.~\ref{remarks}. In this paper we focus on TC group identification, and use a very crude, simple approximation to them.
+
+\subsection{Estimating Success Probabilities}
+\label{ability_estimation}
+
+\subsubsection{Item Responses Only}
+We describe how to estimate item success without response time. We assume experimental independence (person responses are independent) and local independence (a person's responses to items are independent), and that the test measures a scalar student ability $\theta$ (more generally, it can be a vector in $\R^C$ representing $C$ latent ability dimensions). For each person $p$, we $\theta_p$ is the number of standard deviations away from the mean test score fraction; namely,
+\begin{eqnarray}
+	f_{p} &:=& \frac{1}{I} \sum_i x_{pi} \\
+	\bar{f} &=& \frac{1}{P} \sum_{p=1}^{P} f_{p} \\
+	\sigma &=& \left(\frac{1}{P-1} (f_{pc} - \bar{f})^2 \right)^{\frac12} \\
+	\theta_{p} &=& \frac{f_{p} - \bar{f}}{\sigma}\,.
+	\label{theta_init}
+\end{eqnarray}
+Next, we define an Item Response Function (IRF) for each item,
+\begin{equation}
+  f_i(\theta) = f(\theta; \gamma_i) = P \left[X_i=1 | \theta=\theta_p, \gamma_i) \right]\,,
+\end{equation}
+where $\gamma_i$ is a vector of item parameters. We represent $P_i$ as a numerical histogram: we bin $\left\{\theta_p\right\}_p$ into $n$ quantile bins delimited by $\varphi_0 < \xi_1 < \dots < \varphi_n$, where $n = \floor*{P / 10}$. We define the bin values at the bin centers $\left\{\xi_j \right\}_{j=1}^n$ by
+\begin{equation}
+	\label{histogram_const}
+	f_{ij} = \frac{\sum_{p \in \cA_j} X_{pi}}{|\cA_j|}\,,\qquad
+	\cA_j := \left\{ p : \varphi_{j-1} \leq \ta_p < \varphi_j \right\}\,.
+\end{equation}
+$P_i$ is the linear interpolant from its discrete values $\gamma_i := \{f_{ij} := f_i(\xi_j)\}_j$ (smoother schemes could be substituted instead, e.g., B-splines, as in \cite{matt_bsplines}), which are the item parameters h Finally, we set our approximation to
+\begin{equation}
+	P_{pi} = f_i(\theta_p)\qquad\, p=1,\dots,P\,,i=1,\dots,I.
+	\label{ppi_interpolation}
+\end{equation}
+
+\subsubsection{Item Responses and Times}
+If response times are available, we also want to account for faster-than-expected response times in the aberration definition. Response time are often modeled as log-normal \cite{response_time}. For item $i$, we construct the distribution $\left\{y_{pi}\right\}_p$, $y_{pi} := \log(t_{pi})$ of log response times to item $i$, and calculate the corresponding 1-tailed p-values
+$$ z_{pi} = P[y{\cdot,i} \leq y_{pi}]\,, $$,
+i.e., the probability of observing a time at least as fast as person $i$'s time. We then define
+\begin{equation}
+	\tilde{P}_{pi} =  P_{pi} z_{pi}\,,
+	\label{ppi_interpolation_time}
+\end{equation}
+where $P_{pi}$ is defined by (\ref{ppi_interpolation}). This assumes the item response and response time are independent, which is clearly a strong assumption. Generally, as mentioned, an IRT model should be used instead (in this case, to estimate the joint probability of a response and response time).
+
+\section{TC Group Detection Algorithm}
+\label{biclustering}
+Biclustering is clustering in one partition that is tied with clustering in the other. Two persons are clustered together not only when they have largely have the same aberrant responses to all items, but also when they have aberrant responses to the same items that largely belong to the same class. Two items belong to the same class (a leaked item set) if their aberrant responses come from roughly the same cluster of persons. Biclustering consists of two stages: feature vector construction (Sec.~\ref{feature}) and person mini-clustering (Sec.~\ref{miniclustering}). In the final stage we detect whether any of the resulting clusters are likely TC groups (Sec.~\ref{group_detection}). 
+
+\subsection{Relaxation-based Feature Vectors}
+\label{feature}
+The Biclustering algorithm starts by assigning each $a_p$ with a normalized random feature vector $\alpha_p \in \R^q$:
+\begin{equation}
+\begin{split}
+  \alpha_p = \left[ (\alpha_p^1,\alpha_p^1,\ldots,\alpha_p^q) \right]_{normalized} =  \\
+  (\alpha_p^1,\alpha_p^1,\ldots,\alpha_p^q) /
+  \left[ \sum_{i=1}^q (\alpha_p^i)^2 \right]^{1/2},
+\end{split}
+\end{equation}
+where each $\alpha_p^i$ is a random number uniformly distributed in the interval $[-1,1]$. 
+
+Next, the algorithm repeats $K$ times the following alternating pair of normalized averaging steps:
+\begin{equation}
+\begin{split}
+(1) \quad \beta_i = \left[ \sum_m w_{pi} \alpha_p / \sum_m w_{pi} \right]_{normalized}, \quad (i=1,\ldots,I) \\
+(2) \quad \alpha_p = \left[ \sum_n w_{pi} \beta_i / \sum_n w_{pi} \right]_{normalized}, \quad (p=1,\ldots,P) 
+\end{split}
+\label{eqn:bistep}
+\end{equation}
+Each iteration is equivalent to a Gauss-Seidel relaxation sweep for the graph Laplacian \cite{lamg} on each of the nodal vectors $y^i := (\alpha_1^i,\dots,\alpha_p^i,\beta_1^i,\dots,\beta_i^i)$, $i=1,\dots,K$, followed by the normalization step.
+
+After these steps, two persons $a_p$ and $a_{p'}$ who had a similar response aberration pattern would clearly have small distance between them:
+\begin{equation}
+d_{pp'} := \|\alpha_p - \alpha_{p'} \|_2 \ll\,.
+\end{equation}
+Moreover, $d_{pp'}$ will be small even if they had aberrant responses to different items, as long as most of the items for which both had exhibited aberrant responses had similar aberrant responses by a large set of persons; and so on, going back and forth between persons and items.
+
+The number of steps $K$ should be small to keep the algorithm efficient as well as retain meaningful information in the feature vectors $\alpha^i, \beta^i$ (as $K \rightarrow \infty$, these vectors tend to a constant over each connected component of $G$, as the averaging extends over the entire component). The $d_{pp'}$ metric can thus only be used to identify small neighborhoods in each partition. In other words, it can be used for defining in each partition many \underline{mini-clusters} of neighbors, which is done efficiently using the hierarchical k-means algorithm described next. In particular, a TC group should correspond to a mini-cluster of small radius (but that may have a large size). The exact criterion is discussed in Sec.~\ref{group_detection}).
+
+\subsection{Person Mini-Clustering}
+\label{miniclustering}
+Next, we build a hierarchical clustering of persons based on their feature vectors using the method of \cite{miniclustering} that depends on a maximum allowed cluster radius parameter, $r_{max}$.
+
+Each person corresponds to a $q$-dimensional point $\alpha_p$ in $\R^q$ with the Euclidean distance metric $d(\alpha_p, \alpha_{p'}) = 
+\|\alpha_p - \alpha_{p'} \|_2 \ll = d_{p,p'})$. The hierarchy consists of levels $\left\{\cG^l\right\}_{l=1}^L$, where each level is a set of person clusters $\cG_l := \left\{G^k\right\}_{k=1}^{P^l}$.
+
+$G^1$ consists of a single (or few clusters obtained by k-means). Each $G^l$, $l=2,\dots,S$ is obtained from the parent level $G^{l-1}$ by (1) sub-dividing each parent cluster whose radius exceeds $r_{max}$ into two child clusters using k-means within the cluster; and (2) improving all child centers by global k-means, where each point is reassigned to the closest of its $r \approx 5$ nearest centers. This requires maintaining at every level approximate neighboring center lists of each point and each center, which are conveniently and derived from the parent level's neighbor lists (for a child center, we use the nearest $r$ centers within its parent's child centers and the parent's neighbors' child centers; similarly for a point). Group division terminates when all clusters have radii less than $r_{max}$. The computational complexity is $O(r I P \log P)$ time and $O(r I P)$ storage. The final result is the finest clustering level $G^L$ consisting of {\it mini-clusters} of close neighbors.
+
+{\bf TODO: add figure demonstrating the clustering result in 2D.}
+
+\subsection{Detecting TC Groups Among Clusters}
+\label{group_detection}
+Given a (mini-) cluster, we would like to test how likely it is to be a TC group. TC groups are likely to have a larger intra-connectivity than inter-connectivity to the surrounding graph nodes, as persons within the group exhibit a common pattern (at least for leaked items) not shared by other test takers. Our test statistic is the {\it mean silhouette score} of a person cluster $\cC$, defined by
+\begin{equation}
+\end{equation}
+\begin{eqnarray}
+	\phi(\cC) &:= & \frac{1}{|\cC|} \sum_{p \in \cC}  \frac{B_p- A_p}{\max\left\{A_p, B_p \right\}}\, \\
+	A_p &:=& \frac{1}{|\cC|-1} \sum_{p' \in C, p' \not = p} d_{p,p'}\,, \\
+	B_p &:=& \frac{1}{|\cC'|-1} \sum_{p' \in C', p' \not = p} d_{p,p'}\,, \\
+	\label{sil}
+\end{eqnarray}
+where $\cC' = \left\{1,\dots,P\right\} \setminus \cC$. Note that this test statistic is defined in the low $q$-dimensional graph embedding  (via feature vectors) as opposed to the original graph, as we have defined our clusters in this space. A score of $\phi(\cC) \approx 1$ indicates that the cluster is well separated from its complement; $\phi(\cC) \approx -1$ is the worst possible score.
+
+Next, we create a baseline of silhouette scores by simulation: given the person abilities $\left\{\theta_p\right\}_p$ and the IRFs, we generate a $P \times I$ matrix of random item responses, and run biclustering and obtain a list of person mini-clusters and corresponding silhouette scores. We construct a silhouette score distribution from multiple random experiments. Since each experiment yields $O(P)$ clusters (most of which contain $O(1)$ persons), we can obtain a large sample of scores with a reasonable number of experiments (perhaps $10-50$, and probably bounded as $P \longrightarrow \infty$. Given a score $\phi(\cC)$, we can now determine its $p$-value in the distribution and flag all clusters with $p$-value less than a specified value, say, $p = 0.05$, as TC groups.
+
+\subsection{Unfinished ideas}
+The basic open question: how to detect collusion groups from the clustering?
+\begin{itemize}
+  \item \underline{Bottom-up clustering.} gradually build collusion groups - smaller miniclusters, from which we construct bigger clusters by emphasizing ``aggregative properties'', in this case, perhaps items that may seem like they were leaked. Then we proceed in the standard way: to create a bipartite graph whose nodes are the mini-clusters, we need to define  the affinity (the weight of the link) between any mini-cluster $A_p$ in the first partition and any mini-cluster $B_q$ in the second partition. A natural definition is
+\begin{equation}
+W_{pq} = \frac{\sum_{n,m} P^a_{mp}P^b_{nq}{w_{pi}}^\eta}{ \sum_{n,m}P^a_{mp}P^b_{nq}}
+\label{eqn:b2}
+\end{equation}
+where
+\begin{equation}
+P^a_{mp} = Prob \left[a_p \in A_p\right], \quad P^b_{nq} = Prob \left[ b_n \in B_q \right]
+\end{equation}
+and $\eta>0$ is a hyper-parameter that can be chosen higher or lower to emphasize or de-emphasize strong links.
+\end{itemize}
+
+\section{Results}
+\label{results}
+
+\section{Concluding Remarks}
+\label{remarks}
+The algorithm can be extended in several ways, indicated below.
+\begin{itemize}
+	\item {IRT and Iterative refinement.} As indicated in Sec.~\ref{ability_estimation}, estimation of person abilities and item difficulties can be replaced by a much more accurate method, e.g., IRT. \cite{nirt} describes an algorithm whose first step is the estimate used here: $\theta$ estimation relative to the population mean score, followed by IRF histogram construction. However, both $\theta$'s and IRFs are subsequently estimated during Monte-Carlo Markov Chain (MCMC). The IRT estimation gives rise to improved TC graph edge weights, which should yield more accurate TC groups. Since the IRT estimates may be biased by the presence of TC groups, it can then be repeated, omitting cheater responses to leaked items (or giving them a very small weight in estimation) to obtain improved $\theta$'s and IRFs, from which we can estimate yet more accurate TC groups; and so on. Only few such iterations are likely necessary.
+	\item {IRT that includes response times.} {\bf TBA}.
+	\item \underline{Fuzzy hierarchical clustering.} Instead of the disjoint miniclusters one can use the $d_{pp'}$ metric to build in each partition \underline{fuzzy} mini-clusters, where each node has a \underline{probability} of belonging to each one of possible \underline{several} mini-clusters. The same can then be done at all levels of the hierarchical clustering. This allows a person to participate in multiple collusion groups.
+	\item {Continuous scores.} The weight definition $w_{pi}$ (\ref{ppi_interpolation_time}) still holds for continuous scores, but $P_{pi}$ needs to be estimated for different score values. (e.g., an IRT model that defines an IRF for each score interval).
+
+
+{\bf Response times.}
+If response times are also available, they may be incorporated into IRT model estimation.
+the IRT model estimation may include them 
+Edge weights may also take into account response times, they thos
+. Assuming cheaters have a faster response time than non-cheaters, they will be more strongly connected to leaked items. We then find a {\it bi-clustering} of the graph: clustering in one partition, which is tied with clustering in the other.
+If response times $t_{pi} > 0$ are also available for all $p$ and $i$, and $T_{pi}$ is the random variable representing person $p$'s response time on item $i$, (\ref{weight}) is modified to
+\begin{equation}
+  w_{pi} := \frac{1}{\tilde{P}_{pi}^{s}}\,,\qquad \tilde{P}_{pi} := P \left[X_{pi}=1, T_{pi}=t_{pi} | \theta_p, \gamma_i) \right]\,.
+\end{equation}
+This probability-based definition ensures that all graph weights are on the same scale, as weights would otherwise need to be properly normalized across items and/or persons. Computing $P_{pi}$ or $\tilde{P}_{pi}$ generally requires a full Item Response Theory (IRT) model; see Sec.~\ref{remarks}. In this paper we focus on TC group identification, and use a very crude, simple approximation to them.
+
+Note that the score distribution can be calculated once for all 
+
+\end{itemize}
+
+\bibliographystyle{plain}
+\bibliography{irt_mcmc}
+
+\end{document}

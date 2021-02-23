@@ -33,7 +33,7 @@ class TestLikelihood(unittest.TestCase):
         theta = nirt.likelihood.initial_guess(self.x, self.c)
         c = 0
         active = np.random.choice(np.arange(self.P, dtype=int), size=min(self.P, sample_size), replace=False)
-        grid = [nirt.grid.Grid(theta[active, c], num_bins) for c in range(self.C)]
+        grid = [nirt.grid.create_grid(theta[active, c], num_bins) for c in range(self.C)]
         irf = [nirt.irf.ItemResponseFunction(grid[self.c[i]], self.x[:, i]) for i in range(self.I)]
 
         likelihood = nirt.likelihood.Likelihood(self.x, self.c, irf)

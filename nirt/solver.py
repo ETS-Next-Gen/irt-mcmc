@@ -68,7 +68,7 @@ class Solver:
         # Build IRFs from theta values. Assuming the same resolution for all item IRFs, so this is an I x n array.
         # Bin persons by theta value into n equal bins (percentiles). Note: theta is a vector of all variables we're
         # changing. Reshape it to #active_people x C so we can build separate bin grids for different dimensions.
-        grid = [nirt.grid.Grid(theta_active[:, ci], num_bins, method=self._method, xlim=self._xlim[ci])
+        grid = [nirt.grid.create_grid(theta_active[:, ci], num_bins, method=self._method, xlim=self._xlim[ci])
                 for ci in range(self.C)]
         # for c in range(self.C):
         #     print("c", c, grid[c])

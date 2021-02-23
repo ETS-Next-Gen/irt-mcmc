@@ -167,6 +167,9 @@ class _QuantileGrid(Grid):
         self._bin_start = bin_start
         self.bin = [index[bin_start[i]:bin_start[i + 1]] for i in range(num_bins)]
         self.endpoint = np.concatenate((theta[index[bin_start[:-1]]], [theta[index[-1]]]))
+        self.bin_index = -np.ones_like(index)
+        for i in range(num_bins):
+            self.bin_index[index[bin_start[i]:bin_start[i + 1]]] = i
 
     def update(self, p, theta_new):
         """Updates the quantiles and sorted indices when theta[p] is updated to theta_p."""

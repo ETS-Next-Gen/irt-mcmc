@@ -46,7 +46,7 @@ class TestMcmc(unittest.TestCase):
         theta_active = theta[active]
 
         # Build an IRF and a likelihood function.
-        grid = [nirt.grid.Grid(theta_active[:, c], num_bins) for c in range(self.C)]
+        grid = [nirt.grid.create_grid(theta_active[:, c], num_bins) for c in range(self.C)]
         irf = [nirt.irf.ItemResponseFunction(grid[self.c[i]], self.x[:, i]) for i in range(self.I)]
         likelihood = nirt.likelihood.Likelihood(self.x, self.c, irf)
 
@@ -62,5 +62,5 @@ class TestMcmc(unittest.TestCase):
             ll = sum(energy)
             assert ll > ll_old - 1e-3,\
                 "MCMC sweep decreased likelihood from {} to {}".format(ll_old, ll)
-        assert theta_estimator.acceptance_fraction == pytest.approx(0.052, 0.001), \
+        assert theta_estimator.acceptance_fraction == pytest.approx(0.053, 1e-2), \
                 "Metropolis acceptance should be {} but was {}".format(0.052, theta_estimator.acceptance_fraction)

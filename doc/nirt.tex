@@ -8,6 +8,7 @@
 \newcommand{\bbeta}{\boldsymbol\beta}
 \newcommand{\bt}{\boldsymbol\tau}
 \newcommand{\bta}{\boldsymbol\ta}
+\newcommand{\bOmega}{\boldsymbol\Omega}
 \newcommand{\bY}{\mathbf{Y}}
 \newcommand{\cC}{\mathcal{C}}
 \newcommand{\cG}{\mathcal{G}}
@@ -30,7 +31,7 @@
 \maketitle
 
 \begin{abstract}
-We describe a non-parametric Item Response Theory (IRT) model that estimates both student latent abilities and item response functions, without assuming a specific parametric form or prior distributions. We describe a fast multilevel Monte-Carlo Markov Chain algorithm for estimating the model parameters. Multileveling is used to both speed up MCMC equilibration and define a continuation process that gradually refines the item response function resolution, along with simulated annealing controlling Monte-Carlo updates of latent ability variables. We argue that this formulation can reduce over-fitting, model more general item types and lends itself to faster computation compared with parametric IRT models.
+We describe a non-parametric Item Response Theory (IRT) model that estimates both student latent abilities and item response functions, without assuming a specific parametric form or prior distributions. We describe a fast multilevel Monte-Carlo Markov Chain algorithm for estimating the model parameters. Multileveling is used to both speed up MCMC equilibration and define a continuation process that gradually refines the item response function resolution, along with simulated annealing controlling Monte-Carlo updates of latent ability variables. We argue that this formulation can reduce over-fitting, models more general item types, and lends itself to faster computation compared with parametric IRT models.
 \end{abstract}
 
 \section{Introduction}
@@ -45,11 +46,11 @@ First, we present a new computational model that estimates person abilities and 
 	\item While on the surface the model has more parameters than parametric IRT, over-fitting can be reduced and controlled by adaptively binning in the IRF's numerical representation.
 \end{itemize}
 
-Secondly, we develop a fast multilevel MCMC algorithm for estimating the model parameters. The MCMC formulation lends itself to a much faster computation than models that estimate item parameters by integrating out the latent ability dimension. These use a Newton-Raphson \cite{haberman} or Expectation-Maximization to maximize the likelihood function. Many steps are typically required to converge to a local maximum (not guaranteed to be near the global maximum), since these search methods visit many states that are far from the solution before honing in the correct its basin of attraction, and/or require step damping to maintain stability. Furthermore, each step requires a costly evaluation of a multi-dimensional integral.
+Secondly, we develop a fast multilevel MCMC algorithm for estimating the model parameters. The MCMC formulation lends itself to a much faster computation than models that estimate item parameters by integrating out the latent ability dimension. These use a Newton-Raphson \cite{haberman} or Expectation-Maximization to maximize the likelihood function. Many steps are typically required to converge to a local maximum (not guaranteed to be near the global maximum), since these search methods visit many states that are far from the solution before honing in on the correct attraction basin, and may require step damping to maintain stability. Furthermore, each step requires a costly evaluation of a multi-dimensional integral.
 
 In contrast, we run MCMC with a {\it continuation method}: we start from a coarse resolution of the IRF function, and estimate its parameters along with the latent abilities of large groups of students using MCMC. We then gradually increase the IRF resolution while refining student groups into smaller groups; the solution to the model at a certain resolution serves as the initial guess to the next-higher resolution model. In this way we confine the search to the relevant part of the parameter space.
 
-Monte-Carlo (MC) process is called {\it statistically optimal} if it attains accuracy $\varepsilon$ in a target quantity (e.g., the mean latent ability of sub-populations of interest) in $O(\sigma_2 \varepsilon^{-2})$ samples, where $\sigma$ is the standard deviation of the target quantity. This is the theoretical lower bound, as this is the complexity of calculating any simple average by statistical sampling, e.g., the frequency of heads in coin tossing, and we therefore set it as our goal. However, MC often encounters critical slowing down (CSD): the number passes needed to produce a new (independent) sample increases, typically as a power of the number of parameters. To mitigate that, we develop a {\it multilevel MC} algorithm: in addition to updating individual parameters, it also applied collective updates to groups of correlated parameters. By updating groups of various scales, CSD is avoided and the algorithm is statistically optimal, with a linear run-time complexity in the number of persons and items. 
+Monte-Carlo (MC) process is called {\it statistically optimal} if it attains accuracy $\varepsilon$ in a target quantity (e.g., the mean latent ability of sub-populations of interest) in $O(\sigma^2 \varepsilon^{-2})$ samples, where $\sigma$ is the standard deviation of the target quantity. This is the theoretical lower bound, as this is the complexity of calculating any simple average by statistical sampling, e.g., the frequency of heads in coin tossing, and we therefore set it as our goal. However, MC often encounters critical slowing down (CSD): the number passes needed to produce a new (independent) sample increases, typically as a power of the number of parameters. To mitigate that, we develop a {\it multilevel MC} algorithm: in addition to updating individual parameters, it also applied collective updates to groups of correlated parameters. By updating groups of various scales, CSD is avoided and the algorithm is statistically optimal, with a linear run-time complexity in the number of persons and items. 
 
 The multilevel methodology offers other benefits (e.g., supporting adaptive grids in the IRF representation, Sec.~\ref{adaptive_grid}) and could be used to speed up other MCMC models beyond IRT.
 
@@ -57,23 +58,23 @@ We describe the model in Section~\ref{model}. The multilevel MCMC algorithm for 
 
 \section{Model Formulation}
 \label{model}
-We assume $P$ persons take a test consisting of $I$ items. For simplicity, items are assumed to be multiple-choice, but polytomous or continuous-scored items could be supported. Person $p$'s response to item $i$ is denoted by the binary $X_{pi}$ ($X_{pi}=1$ is the answer was correct, $0$ otherwise).
+We assume $P$ persons take a test consisting of $I$ items. For simplicity, items are assumed to be multiple-choice; extensions to polytomous and continuous-scored items are discussed in Sec.~\ref{item_types}. Person $p$'s response to item $i$ is denoted by the binary $X_{pi}$ ($X_{pi}=1$ if the answer was correct, $0$ otherwise).
 
 \subsection{Unknowns}
-Item responses are assumed to be driven by $C$ latent variables $\ta := (\ta_1,\dots,\ta_C)$ representing a person's ability. Let $\ta_p=(\ta_p^1,\dots,\ta_p^C)$ denote person $p$'s unknown ability and $\bta = (\ta_1,\dots,\ta_P)$. We are free to choose $\ta$'s domain $\Omega$; we choose $\Omega := [-M,M]^C$ with a large enough $M$, say, $M = 5$ ($\ta_{i,c}$ may be interpreted as the number of standard deviations away person $i$'s ability is from the average ability in dimension $c$, $c=1,\dots,C$).
+Item responses are assumed to be driven by $C$ latent real-valued variables representing a person's ability. Let $\ta_p=(\ta_{p1},\dots,\ta_{pC})$ denote person $p$'s unknown ability and $\bta = (\ta_1,\dots,\ta_P)$. We are free to choose $\ta$'s domain $\bOmega$; we set $\bOmega := \Omega^C, \Omega := [-M, M]$ with a large enough $M$, say, $M = 5$ ($\ta_{pc}$ may be interpreted as the number of standard deviations away person $p$'s ability is from the average ability in dimension $c$, $c=1,\dots,C$).
 
-A person's response to item $i$ is modeled by an Item Response Function (IRF) $P_i(\ta;\beta_i)$, where $\beta_i$ is a vector of item parameters. We represent $P_i$ as a numerical function: the $\ta$ domain is covered by a uniform grid of with $n$ bins in each dimension and meshsize $h = 2 M / n$. For each dimension $c=1,\dots,C$, .et $j=(j_1,\dots,j_C)$, $1 \leq j_c \leq n$ be the bin index, $\left\{\xi_j{jc} \right\}_{j=1}^n$ be the bin centers, and $\left\{\varphi_j\right\}_{j=0}^n$ denote the grid points, i.e., the bin borders, that is, $\xi_{jc} = (\varphi_{j-1,c} + \varphi{j})/2$. A non-uniform grid may be used instead: we explore adaptive binning in Section~\ref{adaptive_grid}, which can save much computational work. 
+A person's response to item $i$ is modeled by an Item Response Function (IRF) $P_i(\ta;\beta_i)$, where $\beta_i$ is a vector of item parameters. We represent $P_i$ as a discretized function: $\Omega$ is covered by a uniform grid of with $n$ bins in each dimension and meshsize $h = 2 M / n$. Let $1 \leq j \leq n$ be the bin index, $\left\{\xi_{j} \right\}_{j=1}^n$ be the bin centers, and $\left\{\varphi_{j}\right\}_{j=0}^n$ denote the grid points, i.e., the bin borders, that is, $\xi_{j} = (\varphi_{j-1,c} + \varphi_{jc})/2$. A non-uniform grid may be used instead: we explore adaptive binning in Section~\ref{adaptive_grid}, which can save much computational work. 
 
-For simplicity, we define $P_i$ as a linear interpolation from its discrete values $\beta_i := \{P_{ij} := P_i(\xi_j)\}_j$ at bin centers. Other, smoother schemes may be substituted (e.g., B-splines, as in \cite{matt_bsplines}).
+For simplicity, we define $P_i$ as a linear interpolation from its discrete values $\beta_i := \{P_{ijc} := P_i(\xi_{jc})\}_{j=1,c=C}^{n,C}$ at bin centers. Other, smoother schemes may be substituted (e.g., B-splines, as in \cite{matt_bsplines}).
 
-Thus the unknown model parameters are $\bta$ and $\bbeta := (\beta_1,\dots,\beta_I)$. $n$ controls the IRF resolution, and is treated as a hyperparameter that is increased during estimation: as the $\bta$ estimate improve, we refine our IRF representation.
+Thus the unknown model parameters are $\bta$ and $\bbeta := (\beta_1,\dots,\beta_I)$. $n$ controls the IRF resolution, and is treated as a hyperparameter that is increased during estimation: as the $\bta$ estimate improves, we refine the IRF representation.
 
 \subsection{Likelihood}
-The density of $X_{pi}$ can be expressed as 
+We assume two standard assumptions of IRT \cite{junker}: experimental independence (person responses are independent) and local independence (a person's responses to items are independent). The density of $X_{pi}$ can thus be expressed as 
 \begin{equation}
   f(x_{pi}|\ta_p;\beta_i) = P_i(\ta_p;\beta_i)^{x_{pi}} \left(1 - P_i(\ta_p;\beta_i)\right)^{1-x_{pi}}\,.
 \end{equation}
-We used here two standard assumptions of IRT \cite{junker}: experimental independence (person responses are independent) and local independence (a person's responses to items are independent). By Bayes' theorem, the posterior distribution of latent abilities given the responses is
+By Bayes' theorem, the posterior distribution of latent abilities given the responses is
 \begin{equation}
   f(\bta|\bX;\bbeta) \propto\prod_p \prod_i f(X_{pi}|\ta_p;\beta)\,.
   \label{like}
@@ -280,6 +281,7 @@ We consider three binning strategies:
 
 
 \subsection{Item Types}
+\label{item_types}
 For simplicity, items were assumed to be multiple-choice.
 \begin{itemize}
 	\item Polytomous: multiple $P_i$'s - one for each response value.

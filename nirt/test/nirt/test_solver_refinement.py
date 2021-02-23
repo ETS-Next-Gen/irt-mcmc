@@ -45,7 +45,7 @@ class TestSolver(unittest.TestCase):
                 t = nirt.likelihood.initial_guess(X, c)
                 # Build IRFs.
                 xlim = [(min(t[:, ci]) - 2, max(t[:, ci]) + 2) for ci in range(C)]
-                grid = [nirt.grid.Grid(t[:, ci], num_bins, method=method, xlim=xlim[ci]) for ci in range(C)]
+                grid = [nirt.grid.create_grid(t[:, ci], num_bins, method=method, xlim=xlim[ci]) for ci in range(C)]
                 irf = [nirt.irf.ItemResponseFunction(grid[c[i]], X[:, i]) for i in range(I)]
 
                 # Calculate the scaled, weighted L2 norm of the error in the approximate IRF at the nodes.

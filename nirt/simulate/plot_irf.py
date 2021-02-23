@@ -36,9 +36,11 @@ def three_pl_model(theta, a, b, asym):
     return p_correct
 
 
-def plot_model_irf(ax, grid, model_irf, n, color="black", label=None):
+def plot_model_irf(ax, grid, model_irf, n, color="black", label=None, xlim=None):
+    if xlim is None:
+        xlim = (grid.range[0] - 1, grid.range[1] + 1)
     ax.scatter(grid.center, model_irf(grid.center), color=color, s=30, label=label)
-    t_continuous = np.linspace(grid.range[0]-1, grid.range[1]+1, 100)
+    t_continuous = np.linspace(xlim[0], xlim[1], 100)
     ax.plot(t_continuous, model_irf(t_continuous), color=color)
     ax.set_ylim([-0.1, 1.1])
 

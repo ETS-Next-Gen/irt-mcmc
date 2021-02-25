@@ -17,10 +17,11 @@ class SolverMcmc(nirt.solver.Solver):
                  num_theta_sweeps: int = 10,
                  coarsest_resolution: int = 4, finest_resolution: int = None,
                  initial_temperature: int = 1, final_temperature: float = 0.5,
-                 recorder=None):
+                 recorder=None, num_smoothing_sweeps: int = 0):
         super(SolverMcmc, self).__init__(
             x, item_classification, grid_method=grid_method, improve_theta_method="mcmc",
-            num_iterations=num_iterations, num_theta_sweeps=num_theta_sweeps)
+            num_iterations=num_iterations, num_theta_sweeps=num_theta_sweeps,
+            num_smoothing_sweeps=num_smoothing_sweeps)
         self._initial_temperature = initial_temperature
         self._final_temperature = final_temperature
         self._recorder = recorder

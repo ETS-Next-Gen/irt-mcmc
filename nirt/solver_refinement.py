@@ -16,10 +16,11 @@ class SolverRefinement(nirt.solver.Solver):
     def __init__(self, x: np.array, item_classification: np.array,
                  grid_method: str = "uniform-fixed", improve_theta_method: str = "mle", num_iterations: int = 2,
                  num_theta_sweeps: int = 2, coarsest_resolution: int = 4, finest_resolution: int = None,
-                 recorder=None):
+                 recorder=None, num_smoothing_sweeps: int = 0):
         super(SolverRefinement, self).__init__(
             x, item_classification, grid_method=grid_method, improve_theta_method=improve_theta_method,
-            num_iterations=num_iterations, num_theta_sweeps=num_theta_sweeps)
+            num_iterations=num_iterations, num_theta_sweeps=num_theta_sweeps,
+            num_smoothing_sweeps=num_smoothing_sweeps)
         self._recorder = recorder
         self._coarsest_resolution = coarsest_resolution
         self._finest_resolution = finest_resolution

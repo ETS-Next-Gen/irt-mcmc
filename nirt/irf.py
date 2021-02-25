@@ -17,7 +17,7 @@ class ItemResponseFunction:
         x: array<float> interpolation nodes (bin center + extension points).
         y: array<float> interpolation values.
     """
-    def __init__(self, grid: nirt.grid.Grid, x: np.array) -> None:
+    def __init__(self, grid: nirt.grid.Grid, x: np.array, num_smoothing_sweeps: int = 0) -> None:
         # Calculate a simple histogram where each person contributes its full score value to its bin (generally: could
         # distribute a person's score into several neighboring bins).
         score = np.array([sum(x[b]) for b in grid.bin])
@@ -35,6 +35,8 @@ class ItemResponseFunction:
         self.has_data = has_data
         self.x = np.concatenate(([2 * node[0] - node[1]], node, [2 * node[-1] - node[-2]]))
         self.y = np.concatenate(([0], self.probability, [1]))
+        for _ in range(num_smoothing_sweeps):
+            relax(self.y)
         self.interpolant = scipy.interpolate.interp1d(self.x, self.y, bounds_error=False, fill_value=(0, 1))
 
     @property
@@ -66,3 +68,8 @@ class ItemResponseFunction:
         ax.set_xlabel(r"$\theta$")
         ax.set_ylabel(r"$P(X=1|\theta)$")
         ax.set_title(title)
+
+
+def relax(y):
+    for i in range(1, len(y) - 1):
+        y[i] = 0.5 * (y[i - 1] + y[i + 1])

@@ -13,7 +13,7 @@ class Solver:
     """Solver base class."""
     def __init__(self, x: np.array, item_classification: np.array,
                  grid_method: str = "quantile", improve_theta_method: str = "mcmc", num_iterations: int = 3,
-                 num_theta_sweeps: int = 10):
+                 num_theta_sweeps: int = 10, num_smoothing_sweeps: int = 0):
         self.x = x
         self.c = item_classification
         self.P = self.x.shape[0]
@@ -25,6 +25,7 @@ class Solver:
         self._improve_theta_method = improve_theta_method
         self._num_iterations = num_iterations
         self._num_theta_sweeps = num_theta_sweeps
+        self._num_smoothing_sweeps = num_smoothing_sweeps
 
         # Determine the IRF axis for fixed resolutions.
         theta = nirt.likelihood.initial_guess(self.x, self.c)
@@ -72,5 +73,7 @@ class Solver:
                 for ci in range(self.C)]
         # for c in range(self.C):
         #     print("c", c, grid[c])
-        irf = np.array([nirt.irf.ItemResponseFunction(grid[self.c[i]], self.x[:, i]) for i in range(self.num_items)])
+        irf = np.array([nirt.irf.ItemResponseFunction(
+            grid[self.c[i]], self.x[:, i], num_smoothing_sweeps=self._num_smoothing_sweeps)
+            for i in range(self.num_items)])
         return irf

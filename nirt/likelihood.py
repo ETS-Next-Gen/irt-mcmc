@@ -72,8 +72,46 @@ class Likelihood:
         ll = np.sum(y * item_measures_dimension, axis=1)
         # print("ll", ll)
         # Prior of theta[p, c] = log(N(0, 1))
-        prior = - theta ** 2
+        prior = - 0.5 * theta ** 2
         return ll + prior
+
+    # def log_likelihood_term_derivative(self, theta, active=None):
+    #     """
+    #     Returns an array of log likelihoods of person responses (self._x) given theta for an active subset of persons
+    #     and dimensions. This is the sum of the individual person-dimension likelihood for each component of theta
+    #     (and corresponding active[0], active[1] entries).
+    #
+    #     Args:
+    #         theta: array, shape=(M,) active person latent ability parameters. This is a flattened list of all theta
+    #             entries for the persons and dimensions in the 'active' array.
+    #         active: array, shape=(M,) subscripts of active persons and subscales to calculate the likelihood over.
+    #             Optional, default: None. If None, all theta values are used.
+    #     Returns:
+    #         array of log likelihood of person responses (self._x) given t for each t in theta.
+    #     """
+    #     if active is None:
+    #         active = np.unravel_index(np.arange(theta.size), theta.shape)
+    #     # Evaluate the IRF for all active persons and all items first. It's a slight waste but can be vectorized into
+    #     # matrix shape. (Could potentially also vectorize the loop over irf_func entries if we can vectorize IRF
+    #     # interpolation.)
+    #     # print("theta", theta)
+    #     # print('active', active)
+    #     p = np.array([irf.interpolant(theta) for irf in self._irf]).transpose()
+    #     # Active person responses to all items (M x I).
+    #     x = self._x[active[0]]
+    #     # print('p', p.shape, 'x', x.shape)
+    #     y = x * _clipped_log(p) + (1 - x) * _clipped_log(1 - p)
+    #     # print('y', y.shape)
+    #     # Calculate an indicator array of whether item i measures dimension active[1][j]. Only the items measuring
+    #     # the relevant dimension are taken into account in the log likelihood sum of this active person entry.
+    #     # print("active[1]", active[1].shape)
+    #     item_measures_dimension = (np.tile(self._c, (active[0].size, 1)) == active[1][:, None])
+    #     # print("item_measures_dimension", item_measures_dimension.shape)
+    #     ll = np.sum(y * item_measures_dimension, axis=1)
+    #     # print("ll", ll)
+    #     # Prior of theta[p, c] = log(N(0, 1))
+    #     prior = - 2 * theta
+    #     return ll + prior
 
     def parameter_mle(self, p: int, c: int, max_iter: int = 10, display: bool = False,
                       theta_init: float = None) -> float:
@@ -149,7 +187,7 @@ class Likelihood:
         L = sum(x[i] * _clipped_log(self._irf[i].interpolant(t)) +
                 (1 - x[i]) * _clipped_log(1 - self._irf[i].interpolant(t))
                 for i in range(len(x)))
-        prior = - t ** 2
+        prior = - 0.5 * t ** 2
         return L + prior
 
 

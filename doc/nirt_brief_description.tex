@@ -1,0 +1,127 @@
+\documentclass{article}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{authblk}
+\usepackage{algorithm}
+\usepackage{algorithmic}
+
+\newcommand{\bbeta}{\boldsymbol\beta}
+\newcommand{\bt}{\boldsymbol\tau}
+\newcommand{\bta}{\boldsymbol\ta}
+\newcommand{\bOmega}{\boldsymbol\Omega}
+\newcommand{\bY}{\mathbf{Y}}
+\newcommand{\cC}{\mathcal{C}}
+\newcommand{\cG}{\mathcal{G}}
+\newcommand{\st}{v_{\ta}}
+\newcommand{\ta}{\theta}
+\newcommand{\lla}{\longleftarrow}
+\newcommand{\G}{\mathcal{G}}
+\newcommand{\I}{\mathbb{I}}
+\newcommand{\Normal}{\mathcal{N}}
+\newcommand{\R}{\mathbb{R}}
+\newcommand{\bX}{\mathbf{X}}
+
+\title{Non-parametric Item Response Theory}
+\author{Oren Livne}
+\date{\today}
+
+\begin{document}
+\maketitle
+
+\section{Goal}
+Estimate both student abilities and item responses functions from binary response data. The estimate should be generalizable, i.e., predict student responses to validation items.
+
+\section{Model}
+\label{model}
+We assume $P$ persons take a test consisting of $I$ items. For simplicity, items are assumed to be multiple-choice. Person $p$'s response to item $i$ is denoted by the binary $X_{pi}$ ($X_{pi}=1$ if the answer was correct, $0$ otherwise).
+
+\subsection{Unknowns}
+Item responses are assumed to be driven by $C$ latent real-valued variables representing a person's ability. \textbf{In this basic experiment, we assume all items measure the same dimension, so $\ta$ is a scalar ($C=1$).} Let $\ta_p$ denote person $p$'s unknown ability and $\bta = (\ta_1,\dots,\ta_P)$. We are free to choose $\ta$'s domain $\Omega$; we set $\Omega := [-M, M]$ with a large enough $M$, say, $M = 5$ ($\ta_{p}$ may be interpreted as the number of standard deviations away person $p$'s ability is from the average ability).
+
+A person's response to item $i$ is modeled by an Item Response Function (IRF) $P_i(\ta;\beta_i)$, where $\beta_i$ is a vector of item parameters. We represent $P_i$ as a discretized function: $\Omega$ is covered by a quantile grid of with $n$ bins in each dimension and meshsize $h = 2 M / n$. That is, given the current estimate of $\bta$, we divide $\Omega$ into $n$ bins such that each bin contains an equal number of $\theta_{p}$ values. Let $1 \leq j \leq n$ be the bin index, $\left\{\xi_{j} \right\}_{j=1}^n$ be the bin centers, and $\left\{\varphi_{j}\right\}_{j=0}^n$ denote the grid points, i.e., the bin borders, that is, $\xi_{j} = (\varphi_{j-1} + \varphi_{j=})/2$.
+
+For simplicity, we define $P_i$ as a linear interpolation from its discrete values $\beta_i := \{P_{ij} := P_i(\xi_{j})\}_{j=1}^{n}$ at bin centers. Other, smoother schemes may be substituted (e.g., B-splines, as in \cite{matt_bsplines}).
+
+Thus the unknown model parameters are $\bta$ and $\bbeta := (\beta_1,\dots,\beta_I)$. $n$ controls the IRF resolution, and is treated as a hyperparameter that is increased during estimation: as the $\bta$ estimate improves, we refine the IRF representation.
+
+\subsection{Likelihood}
+We assume two standard assumptions of IRT \cite{junker}: experimental independence (person responses are independent) and local independence (a person's responses to items are independent). The density of $X_{pi}$ can thus be expressed as 
+\begin{equation}
+  f(x_{pi}|\ta_p;\beta_i) = P_i(\ta_p;\beta_i)^{x_{pi}} \left(1 - P_i(\ta_p;\beta_i)\right)^{1-x_{pi}}\,.
+\end{equation}
+By Bayes' theorem, the posterior distribution of latent abilities given the responses is
+\begin{equation}
+  f(\bta|\bX;\bbeta) \propto f(\theta)  \prod_p \prod_i f(X_{pi}|\ta_p;\beta)\,.
+  \label{like}
+\end{equation}
+Importantly, we assume a normal prior $f(\theta) = e^{-\bta^2/2}$ on student abilities. Otherwise, since $\bta$ can be arbitrarily shifted and scaled, it turns out that the algorithm drives all $\theta_p$ to $0$.
+
+\section{Parameter Estimation Algorithm}
+This is an iterative refinement algorithm. At each resolution, we carry out several iterations of updating the IRF followed by updating $\bta$.
+\begin{enumerate}
+	\item Set $\bta$ to the initial guess below, Sec.~\ref{initial_guess}).
+	\item Start with the coarsest resolution $n \longleftarrow 4$.
+	\item Carry out $5$ improvement iterations:
+	\begin{enumerate}
+	    	\item Update $\bbeta$ by the histogram rule (\ref{histogram_const}).
+	    	\item Update $\bta$ to the maximum likelihood estimator (MLE), $argmax f(\bta|\bX;\bbeta)$.
+	    	\item Normalize $\bta$ to zero mean and unit standard deviation.
+	\end{enumerate}
+	\item Double the IRF resolution $n$. 
+	\item Interpolate $\bta$ to the finer resolution, cf.~Sec.~\ref{initial_guess}).
+	\item Carry out $5$ improvement iterations.
+	\item Repeat Steps 4-6 until the final resolution is reached.
+\end{enumerate}
+
+\subsection{Initial Guess}
+\label{initial_guess}
+For each person $p=1,\dots,P$, we calculate the fraction $f_{p}$ of correct responses of the person to all items, and initialize $\ta_{p}$ to the number of standard deviations away from the mean fraction; namely,
+\begin{eqnarray}
+	f_{p} &=& \frac{\sum_{i} X_{pi}}{|I|} \\
+	\bar{f} &=& \frac{1}{P} \sum_{p=1}^{P} f_{p} \\
+	\sigma &=& \left(\frac{1}{P-1} (f_{p} - \bar{f})^2 \right)^{\frac12} \\
+	\ta_{p} &=& \frac{f_{p} - \bar{f}}{\sigma}\,.
+	\label{coarsest_init}
+\end{eqnarray}
+
+\subsubsection{Updating the IRF: Histogram}
+\label{histogram}
+Given an IRF bin resolution $n$ and an initial guess for $\bta$, we first recalculate the bin endpoints (as quantiles of $\bta$ values). We then calculate the IRF bin values as a histogram:
+\begin{equation}
+	\label{histogram_const}
+	P_{ij} = \frac{\sum_{p \in A_j} X_{pi}}{|A_j|}\,,\qquad
+	A_j := \left\{ p : \varphi_{j-1} \leq \ta_p < \varphi_j \right\}\,.
+\end{equation}
+
+\subsection{Updating $\bta$: MLE}
+\label{metropolis}
+From (\ref{model}) it follows that the complete conditional density of $\ta_p$ is
+\begin{equation}
+  f(\ta_p|rest) \propto  f(\ta_p) \prod_i 
+ P_i(\ta_p;\beta_i)^{x_{pi}}\left(1 - P_i(\ta_p;\beta_i)\right)^{1-x_{pi}}\,.
+  \label{cond_ta}
+\end{equation}
+We maximize the density directly (instead of approximating the MLE with MCMC steps). The log of density is more convenient to work with and is piecewise convex, so a root search in every bin yields the bin maximum, and the MLE is the maximum over all bins. 
+ 
+\section{Quality Measurement}
+
+\subsection{Target Quantities}
+A typical target quantity of interest (e.g., in NAEP) is the mean of some function $g(\cdot)$ of proficiency scores $\ta$ over all individuals in some sub-population $\G$. The Nation's Report Card reports results on the composite scale, which is a weighted average of the sub-scales, $g(\ta) = a^T \ta$ for some fixed $a$. The Nation's Report Card also reports the proportion of persons in $\G$ whose composite score is in some pre-defined achievement range, i.e.,
+\begin{equation}
+	g(\ta) = I_{(l,u)}(a^T \ta) =
+  \begin{cases}
+    1, & a^T \ta \in (l,u), \\
+    0, & a^T \ta \not \in (l,u)\,.
+  \end{cases}
+\end{equation}
+
+\section{Questions}
+\begin{itemize}
+	\item How to ensure that the IRF does not have kinks, i.e., regularize it properly, especially as we refine the resolution?
+	\item How to validate the $\bta$ and IRF estimates? If we fit the model to half the items and try to predict student responses to the other half, we can't, because the validation items don't have an IRF yet. One way to somewhat validate $\bta$ is to verify that the student's total score on a validation test increases with $\bta$. Is that good enough?
+\end{itemize}
+
+\bibliographystyle{plain}
+\bibliography{irt_mcmc}
+
+\end{document}

@@ -11,7 +11,7 @@ from typing import Tuple
 def theta_improver_factory(kind, num_iterations, **kwargs):
     """A factory method that returns a theta improver instance of kind 'kind'."""
     if kind == "mle":
-        return _MleImprover(num_iterations)
+        return _MleImprover(num_iterations, loss=kwargs["loss"])
     elif kind == "mcmc":
         return _McmcImprover(num_iterations, kwargs["temperature"])
     else:
@@ -21,7 +21,7 @@ def theta_improver_factory(kind, num_iterations, **kwargs):
 class _MleImprover:
     """Improves theta by calculating the Maximum Likelihood Estimator (MLE) directly via numerical maximization
     (this is the case of zero temperature in MCMC)."""
-    def __init__(self, num_iterations):
+    def __init__(self, num_iterations, loss: str = "likelihood"):
         """
         Improves theta by likelihood maximization. All components are maximized separately as the likelihood is
         separable.
@@ -30,6 +30,7 @@ class _MleImprover:
             num_iterations: Number of iterations to perform for root search. iterations.
         """
         self._num_iterations = num_iterations
+        self._loss = loss
 
     def run(self,
             likelihood: nirt.likelihood.Likelihood,
@@ -37,7 +38,8 @@ class _MleImprover:
             active_ind: np.array) -> \
             Tuple[np.array, nirt.likelihood.Likelihood]:
         return np.array([likelihood.parameter_mle(p, c, max_iter=self._num_iterations,
-                                                  theta_init=theta_active[p][c])
+                                                  theta_init=theta_active[p][c],
+                                                  loss=self._loss)
                          for p, c in zip(*active_ind)]).reshape(theta_active.shape)
         # return np.array([likelihood.parameter_mle(p, c, max_iter=self._num_iterations)
         #                  for p, c in zip(*active_ind)]).reshape(theta_active.shape)

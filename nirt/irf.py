@@ -17,11 +17,16 @@ class ItemResponseFunction:
         x: array<float> interpolation nodes (bin center + extension points).
         y: array<float> interpolation values.
     """
-    def __init__(self, grid: nirt.grid.Grid, x: np.array, num_smoothing_sweeps: int = 0) -> None:
+    def __init__(self, grid: nirt.grid.Grid, x: np.array, num_smoothing_sweeps: int = 0,
+                 histogram: str = "simple") -> None:
         # Calculate a simple histogram where each person contributes its full score value to its bin (generally: could
         # distribute a person's score into several neighboring bins).
-        score = np.array([sum(x[b]) for b in grid.bin])
-        count = np.array([len(x[b]) for b in grid.bin])
+        if histogram == "simple":
+            score, count = simple_histogram(grid, x)
+        elif histogram == "distributed":
+            score, count = linearly_distributed_histogram(grid, x)
+        else:
+            raise ValueError("Unsupported histogram type '{}'".format(histogram))
 
         # Filter empty bins. (In an adaptive quantile grid no bins should be empty, but generally this can happen.)
         has_data = count > 0
@@ -73,3 +78,45 @@ class ItemResponseFunction:
 def relax(y):
     for i in range(1, len(y) - 1):
         y[i] = 0.5 * (y[i - 1] + y[i + 1])
+
+
+def simple_histogram(grid: nirt.grid.Grid, x: np.array):
+    score = np.array([sum(x[b]) for b in grid.bin])
+    count = np.array([len(x[b]) for b in grid.bin])
+    return score, count
+
+
+def linearly_distributed_histogram(grid: nirt.grid.Grid, x: np.array):
+    theta = grid._theta
+    score = np.zeros((len(grid.bin),))
+    count = np.zeros((len(grid.bin),))
+    for b, grid_bin in enumerate(grid.bin):
+        theta_bin = theta[grid_bin]
+        score_bin = x[grid_bin]
+
+        p = theta_bin < grid.center[b]
+        theta_p = theta_bin[p]
+        if b == 0:
+            score[b] += sum(score_bin[p])
+            count[b] += len(theta_p)
+        else:
+            distance_center_left = grid.center[b] - theta_p
+            distance_center_right = theta_p - grid.center[b - 1]
+            score[b - 1] += sum((distance_center_left * score_bin[p]) / (distance_center_left + distance_center_right))
+            count[b - 1] += sum(distance_center_left / (distance_center_left + distance_center_right))
+            score[b] += sum((distance_center_right * score_bin[p]) / (distance_center_left + distance_center_right))
+            count[b] += sum(distance_center_right / (distance_center_left + distance_center_right))
+
+        p = theta_bin >= grid.center[b]
+        theta_p = theta_bin[p]
+        if b == len(grid.bin) - 1:
+            score[b] += sum(score_bin[p])
+            count[b] += len(theta_p)
+        else:
+            distance_center_left = theta_p - grid.center[b]
+            distance_center_right = grid.center[b + 1] - theta_p
+            score[b] += sum((distance_center_left * score_bin[p]) / (distance_center_left + distance_center_right))
+            count[b] += sum(distance_center_left / (distance_center_left + distance_center_right))
+            score[b + 1] += sum((distance_center_right * score_bin[p]) / (distance_center_left + distance_center_right))
+            count[b + 1] += sum(distance_center_right / (distance_center_left + distance_center_right))
+    return score, count

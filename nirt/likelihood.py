@@ -114,7 +114,7 @@ class Likelihood:
     #     return ll + prior
 
     def parameter_mle(self, p: int, c: int, max_iter: int = 10, display: bool = False,
-                      theta_init: float = None) -> float:
+                      theta_init: float = None, loss: str = "likelihood") -> float:
         """
         Returns the Maximum Likelihood Estimator (MLE) of a single parameter theta[p, c] (person's c-dimension
         ability). Uses at most 'max_iter' iterations of Brent's method (bisection bracketing) for likelihood
@@ -126,6 +126,7 @@ class Likelihood:
             max_iter: maximum number
             display: bool, whether to display root finder error messages.
             theta_init: bool, optional, initial guess.
+            loss: type of loss function ("likelihood" | "l2").
 
         Returns: MLE estimator pf theta[p, c].
 
@@ -133,7 +134,14 @@ class Likelihood:
         """
         active = (np.array([p]), np.array([c]))
 #        def f(theta_pc): return -self.log_likelihood_term(np.array([theta_pc]), active=active)[0]
-        def f(theta_pc): return -self._total_likelihood_sum_implementation(theta_pc, p, c)
+        if loss == "likelihood":
+            def f(theta_pc):
+                return -self._total_likelihood_sum_implementation(theta_pc, p, c)
+        elif loss == "l2":
+            def f(theta_pc):
+                return self._l2_loss_sum_implementation(theta_pc, p, c)
+        else:
+            raise Exception("Unsupported loss function {}".format(loss))
 
         # The likelihood function may be non-concave but has piecewise smooth. Use a root finder in every interval,
         # then find the minimum of all interval minima. Benchmarked to be fast (see debugging_log_likelihood notebook).
@@ -189,6 +197,11 @@ class Likelihood:
                 for i in range(len(x)))
         prior = - 0.5 * t ** 2
         return L + prior
+
+    def _l2_loss_sum_implementation(self, t, p, c):
+        x = self._x[p]
+        L = sum((self._irf[i].interpolant(t) - x[i]) ** 2 for i in range(len(x)))
+        return L
 
 
 def initial_guess(x, c):

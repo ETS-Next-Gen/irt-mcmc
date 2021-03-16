@@ -62,5 +62,5 @@ class TestMcmc(unittest.TestCase):
             ll = sum(energy)
             assert ll > ll_old - 1e-3,\
                 "MCMC sweep decreased likelihood from {} to {}".format(ll_old, ll)
-        assert theta_estimator.acceptance_fraction == pytest.approx(0.053, 1e-2), \
-                "Metropolis acceptance should be {} but was {}".format(0.052, theta_estimator.acceptance_fraction)
+        assert theta_estimator.acceptance_fraction == pytest.approx(0.054, 1e-2), \
+                "Metropolis acceptance should be {} but was {}".format(0.054, theta_estimator.acceptance_fraction)

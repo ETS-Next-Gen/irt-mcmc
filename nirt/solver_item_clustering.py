@@ -44,15 +44,15 @@ class SolverItemClustering(nirt.solver.Solver):
         """Solves the IRT model and returns thetas. Continuation in IRF resolution."""
         logger = logging.getLogger("Solver.solve")
 
-        if self._recorder:
-            self._recorder.add_theta(0, theta)
-        num_bins = self._coarsest_resolution
-
         # Keeping all persons in the active set at all times.
         active = np.arange(self.P, dtype=int)
         person_ind = np.tile(active[:, None], self.C).flatten()
         c_ind = np.tile(np.arange(self.C)[None, :], len(active)).flatten()
         active_ind = (person_ind, c_ind)
+
+        if self._recorder:
+            self._recorder.add_theta(len(self._clustering[0]), theta)
+        num_bins = self._coarsest_resolution
 
         # Continuation in item clustering level (coarse to fine).
         for level in self._clustering:
@@ -62,18 +62,19 @@ class SolverItemClustering(nirt.solver.Solver):
         return theta
 
     def _solve_at_resolution(self, x, theta_active, active_ind, num_bins) -> np.array:
+        num_items = x.shape[1]
         logger = logging.getLogger("Solver._solve_at_resolution")
         theta_improver = nirt.theta_improvement.theta_improver_factory(
             self._improve_theta_method, self._num_theta_sweeps, loss=self._loss)
         for iteration in range(self._num_iterations):
             logger.info("Iteration {}/{}".format(iteration + 1, self._num_iterations))
             # Alternate between updating the IRF and improving theta by MLE.
-            self.irf = self._update_irf(num_bins, theta_active)
+            self.irf = self._update_irf(num_bins, theta_active, x=x)
             if self._recorder:
-                self._recorder.add_irf(num_bins, self.irf)
+                self._recorder.add_irf(num_items, self.irf)
             likelihood = nirt.likelihood.Likelihood(x, self.c, self.irf)
             theta_active = theta_improver.run(likelihood, theta_active, active_ind)
             theta_active = (theta_active - np.mean(theta_active, axis=0)) / np.std(theta_active, axis=0)
             if self._recorder:
-                self._recorder.add_theta(num_bins, theta_active)
+                self._recorder.add_theta(num_items, theta_active)
         return theta_active

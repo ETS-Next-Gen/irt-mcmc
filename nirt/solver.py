@@ -57,7 +57,7 @@ class Solver:
         """
         raise ValueError("Must be implemented by sub-classes")
 
-    def _update_irf(self, num_bins: int, theta_active: np.array) -> np.array:
+    def _update_irf(self, num_bins: int, theta_active: np.array, x: np.array = None) -> np.array:
         """
         Builds IRFs from theta values. Assuming the same resolution for all item IRFs, so this is an I x n array.
         Bin persons by theta value into n equal bins (percentiles). Note: theta is a vector of all variables we're
@@ -70,15 +70,13 @@ class Solver:
         Returns:
 
         """
+        if x is None:
+            x = self.x
         logger = logging.getLogger("Solver.solve_at_resolution")
         # Build IRFs from theta values. Assuming the same resolution for all item IRFs, so this is an I x n array.
         # Bin persons by theta value into n equal bins (percentiles). Note: theta is a vector of all variables we're
         # changing. Reshape it to #active_people x C so we can build separate bin grids for different dimensions.
         grid = [nirt.grid.create_grid(theta_active[:, ci], num_bins, method=self._method, xlim=self._xlim[ci])
                 for ci in range(self.C)]
-        # for c in range(self.C):
-        #     print("c", c, grid[c])
-        irf = np.array([nirt.irf.ItemResponseFunction(
-            grid[self.c[i]], self.x[:, i], num_smoothing_sweeps=self._num_smoothing_sweeps)
-            for i in range(self.num_items)])
-        return irf
+        return np.array([nirt.irf.ItemResponseFunction(
+            grid[self.c[i]], x[:, i], num_smoothing_sweeps=self._num_smoothing_sweeps) for i in range(x.shape[1])])

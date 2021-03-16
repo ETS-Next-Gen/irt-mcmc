@@ -120,3 +120,8 @@ def linearly_distributed_histogram(grid: nirt.grid.Grid, x: np.array):
             score[b + 1] += sum((distance_center_right * score_bin[p]) / (distance_center_left + distance_center_right))
             count[b + 1] += sum(distance_center_right / (distance_center_left + distance_center_right))
     return score, count
+
+
+def sorted_chunks(x, bin_size):
+    perm = np.argsort(x.mean(axis=1))
+    return np.array([perm[i: i + bin_size] for i in range(0, bin_size * (x.shape[0] // bin_size), bin_size)])

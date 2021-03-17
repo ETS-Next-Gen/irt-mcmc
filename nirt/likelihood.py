@@ -114,7 +114,7 @@ class Likelihood:
     #     return ll + prior
 
     def parameter_mle(self, p: int, c: int, max_iter: int = 10, display: bool = False,
-                      theta_init: float = None, loss: str = "likelihood") -> float:
+                      theta_init: float = None, loss: str = "likelihood", alpha: float = 0.0) -> float:
         """
         Returns the Maximum Likelihood Estimator (MLE) of a single parameter theta[p, c] (person's c-dimension
         ability). Uses at most 'max_iter' iterations of Brent's method (bisection bracketing) for likelihood
@@ -127,6 +127,7 @@ class Likelihood:
             display: bool, whether to display root finder error messages.
             theta_init: bool, optional, initial guess.
             loss: type of loss function ("likelihood" | "l2").
+            alpha: L2 loss regularization parameter.
 
         Returns: MLE estimator pf theta[p, c].
 
@@ -139,7 +140,7 @@ class Likelihood:
                 return -self._total_likelihood_sum_implementation(theta_pc, p, c)
         elif loss == "l2":
             def f(theta_pc):
-                return self._l2_loss_sum_implementation(theta_pc, p, c, theta_init)
+                return self._l2_loss_sum_implementation(theta_pc, p, c, theta_init, alpha)
         else:
             raise Exception("Unsupported loss function {}".format(loss))
 
@@ -198,8 +199,7 @@ class Likelihood:
         prior = - 0.5 * t ** 2
         return L + prior
 
-    def _l2_loss_sum_implementation(self, t, p, c, theta_init):
-        alpha = 0.2
+    def _l2_loss_sum_implementation(self, t, p, c, theta_init, alpha):
         x = self._x[p]
         L = sum((self._irf[i].interpolant(t) - x[i]) ** 2 for i in range(len(x)))
         # Regularize to ensure solution is in the neighorhood of the current guess.

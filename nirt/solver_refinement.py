@@ -17,11 +17,11 @@ class SolverRefinement(nirt.solver.Solver):
                  grid_method: str = "uniform-fixed", improve_theta_method: str = "mle", num_iterations: int = 2,
                  num_theta_sweeps: int = 2, coarsest_resolution: int = 4, finest_resolution: int = None,
                  recorder=None, num_smoothing_sweeps: int = 0, theta_init: np.array = None,
-                 loss: str = "likelihood"):
+                 loss: str = "likelihood", alpha: float = 0.0):
         super(SolverRefinement, self).__init__(
             x, item_classification, grid_method=grid_method, improve_theta_method=improve_theta_method,
             num_iterations=num_iterations, num_theta_sweeps=num_theta_sweeps,
-            num_smoothing_sweeps=num_smoothing_sweeps, theta_init=theta_init, loss=loss)
+            num_smoothing_sweeps=num_smoothing_sweeps, theta_init=theta_init, loss=loss, alpha=alpha)
         self._recorder = recorder
         self._coarsest_resolution = coarsest_resolution
         self._finest_resolution = finest_resolution
@@ -56,7 +56,7 @@ class SolverRefinement(nirt.solver.Solver):
     def _solve_at_resolution(self, theta_active, active_ind, num_bins) -> np.array:
         logger = logging.getLogger("Solver._solve_at_resolution")
         theta_improver = nirt.theta_improvement.theta_improver_factory(
-            self._improve_theta_method, self._num_theta_sweeps, loss=self._loss)
+            self._improve_theta_method, self._num_theta_sweeps, loss=self._loss, alpha=self._alpha)
         for iteration in range(self._num_iterations):
             logger.info("Iteration {}/{}".format(iteration + 1, self._num_iterations))
             # Alternate between updating the IRF and improving theta by MLE.

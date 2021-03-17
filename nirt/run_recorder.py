@@ -9,7 +9,7 @@ class RunRecorder:
         self.irf = collections.OrderedDict()
 
     def add_theta(self, num_bins, theta):
-        self.theta.setdefault(num_bins, []).append(theta)
+        self.theta.setdefault(num_bins, []).append(theta.copy())
 
     def add_irf(self, num_bins, irf):
         self.irf.setdefault(num_bins, []).append(irf)

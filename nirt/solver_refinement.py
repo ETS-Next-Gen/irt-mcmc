@@ -65,7 +65,7 @@ class SolverRefinement(nirt.solver.Solver):
                 self._recorder.add_irf(num_bins, self.irf)
             likelihood = nirt.likelihood.Likelihood(self.x, self.c, self.irf)
             theta_active = theta_improver.run(likelihood, theta_active, active_ind)
-            theta_active = (theta_active - np.mean(theta_active, axis=0)) / np.std(theta_active, axis=0)
+            #theta_active = (theta_active - np.mean(theta_active, axis=0)) / np.std(theta_active, axis=0)
             if self._recorder:
                 self._recorder.add_theta(num_bins, theta_active)
         return theta_active

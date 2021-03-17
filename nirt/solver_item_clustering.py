@@ -56,9 +56,10 @@ class SolverItemClustering(nirt.solver.Solver):
 
         # Continuation in item clustering level (coarse to fine).
         for level in self._clustering:
-            logger.info("Solving at item clustering level with {} items".format(len(level)))
+            logger.info("Solving at item clustering level with {} items {} bins".format(len(level), num_bins))
             x = np.array([self.x[:, cluster].mean(1) for cluster in level]).transpose()
             theta[active] = self._solve_at_resolution(x, theta[active], active_ind, num_bins)
+            #num_bins *= 2
         return theta
 
     def _solve_at_resolution(self, x, theta_active, active_ind, num_bins) -> np.array:

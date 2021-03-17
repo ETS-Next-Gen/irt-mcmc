@@ -139,7 +139,7 @@ class Likelihood:
                 return -self._total_likelihood_sum_implementation(theta_pc, p, c)
         elif loss == "l2":
             def f(theta_pc):
-                return self._l2_loss_sum_implementation(theta_pc, p, c)
+                return self._l2_loss_sum_implementation(theta_pc, p, c, theta_init)
         else:
             raise Exception("Unsupported loss function {}".format(loss))
 
@@ -198,10 +198,12 @@ class Likelihood:
         prior = - 0.5 * t ** 2
         return L + prior
 
-    def _l2_loss_sum_implementation(self, t, p, c):
+    def _l2_loss_sum_implementation(self, t, p, c, theta_init):
+        alpha = 0.2
         x = self._x[p]
         L = sum((self._irf[i].interpolant(t) - x[i]) ** 2 for i in range(len(x)))
-        return L
+        # Regularize to ensure solution is in the neighorhood of the current guess.
+        return L + alpha * (t - theta_init) ** 2
 
 
 def initial_guess(x, c):
@@ -213,8 +215,9 @@ def initial_guess(x, c):
     population_mean = x_of_dim.mean(axis=0)
     population_std = x_of_dim.std(axis=0)
     theta = (x_of_dim - population_mean) / population_std
-    d = theta.max(axis=0) - theta.min(axis=0)
-    theta += 0.001 * d * (2 * np.random.rand(*theta.shape) - 1)
+    # Add random noise.
+    #d = theta.max(axis=0) - theta.min(axis=0)
+    #theta += 0.001 * d * (2 * np.random.rand(*theta.shape) - 1)
     return theta
 
 

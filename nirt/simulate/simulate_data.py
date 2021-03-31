@@ -7,7 +7,8 @@ from scipy.stats import invgamma
 def generate_dichotomous_responses(num_persons, num_items: int,
                                    num_latent_dimensions: int,
                                    asymptote: float = 0.25,
-                                   discrimination: int = 1):
+                                   discrimination: int = 1,
+                                   dichotomous: bool = True):
     """
     Generates simulated parametric IRT dichotomous item response data. Generates binary item responses. Assumes person
     abilities theta[:,c], c=1,...,C follows a N(0, InvGamma(1,1)) distribution. Item difficulties are uniformly spaced.
@@ -18,8 +19,9 @@ def generate_dichotomous_responses(num_persons, num_items: int,
         num_persons: int, number of persons.
         num_items: int, number of items.
         num_latent_dimensions: int, number of item classes = number of latest ability dimensions.
-        discrimination: item discrimination factor.
         asymptote: float, probability of guessing = asymptotic IRF value at theta -> -infinity.
+        discrimination: item discrimination factor.
+        dichotomous: generate binary x (if True), or continuous x_{pi} = P_i(theta_p) (if False).
 
     Returns:
         x: array<float>, shape=(num_persons, num_items) binary item response matrix.
@@ -47,7 +49,10 @@ def generate_dichotomous_responses(num_persons, num_items: int,
 
     # Generate item responses (the observed data) (3PL model).
     p_correct = three_pl_model(theta[:, c], a, b, asymptote)
-    x = np.random.binomial(1, p=p_correct)
+    if dichotomous:
+        x = np.random.binomial(1, p=p_correct)
+    else:
+        x = p_correct
     return x, theta, b, c
 
 

@@ -140,7 +140,7 @@ class Likelihood:
                 return -self._total_likelihood_sum_implementation(theta_pc, p, c)
         elif loss == "l2":
             def f(theta_pc):
-                return self._l2_loss_sum_implementation(theta_pc, p, c, theta_init, alpha)
+                return self._l2_loss_sum_implementation(theta_pc, p, c)
         else:
             raise Exception("Unsupported loss function {}".format(loss))
 
@@ -199,11 +199,26 @@ class Likelihood:
         prior = - 0.5 * t ** 2
         return L + prior
 
-    def _l2_loss_sum_implementation(self, t, p, c, theta_init, alpha):
+    def _l2_loss_sum_implementation(self, t, p, c):
         x = self._x[p]
-        L = sum((self._irf[i].interpolant(t) - x[i]) ** 2 for i in range(len(x)))
-        # Regularize to ensure solution is in the neighorhood of the current guess.
-        return L + alpha * (t - theta_init) ** 2
+        return sum((self._irf[i].interpolant(t) - x[i]) ** 2 for i in range(len(x)))
+
+    def l2_loss(self, t):
+        """
+        Returns the global L2 loss over all students and items. This assumes a uni-dimensional theta (C=1). This is
+
+        Loss = 1/(#students * #items) sum_{students p} sum_{items i} (self._irf[i].interpolant(t[p]) - x[p, i]) ** 2
+
+        where x = student responses.
+
+        Args:
+            t: theta approximation.
+
+        Returns: L2 loss.
+        """
+        c = 0
+        return np.mean([(self._irf[i].interpolant(t[p]) - self._x[p, i]) ** 2
+                        for p in range(t.shape[0]) for i in range(self._x.shape[1])])
 
 
 def initial_guess(x, c):

@@ -29,6 +29,28 @@ class TestSimulatedData(unittest.TestCase):
         assert b.shape == (I, )
         assert c.shape == (I, )
 
+
+    def test_generate_continuous_responses(self):
+        np.random.seed(0)
+
+        # Number of persons.
+        P = 100
+        # Number of items.
+        I = 20
+        # Number of latent ability dimensions (sub-scales).
+        C = 1
+        # Using 2-PL model with fixed discrimination and no asymptote for all items.
+        asym = 0  # 0.25
+        discrimination = 1
+
+        x, theta, b, c = sim.generate_dichotomous_responses(P, I, C, asymptote=asym, discrimination=discrimination,
+                                                            dichotomous=False)
+
+        assert x.shape == (P, I)
+        assert theta.shape == (P, C)
+        assert b.shape == (I, )
+        assert c.shape == (I, )
+
     def test_generate_response_times(self):
         np.random.seed(0)
 

@@ -8,7 +8,9 @@ def generate_dichotomous_responses(num_persons, num_items: int,
                                    num_latent_dimensions: int,
                                    asymptote: float = 0.25,
                                    discrimination: int = 1,
-                                   dichotomous: bool = True):
+                                   dichotomous: bool = True,
+                                   num_trials: int = 1,
+                                   b_range=(-3,3)):
     """
     Generates simulated parametric IRT dichotomous item response data. Generates binary item responses. Assumes person
     abilities theta[:,c], c=1,...,C follows a N(0, InvGamma(1,1)) distribution. Item difficulties are uniformly spaced.
@@ -22,6 +24,8 @@ def generate_dichotomous_responses(num_persons, num_items: int,
         asymptote: float, probability of guessing = asymptotic IRF value at theta -> -infinity.
         discrimination: item discrimination factor.
         dichotomous: generate binary x (if True), or continuous x_{pi} = P_i(theta_p) (if False).
+        num_trials: number of trials to use for generating x_{pi} = binomial(num_trials, P_i(theta_p)) if
+            dichotomous = True.
 
     Returns:
         x: array<float>, shape=(num_persons, num_items) binary item response matrix.
@@ -41,7 +45,7 @@ def generate_dichotomous_responses(num_persons, num_items: int,
     else:
         a = np.ones((num_items,)) * discrimination
     # Difficulty is equally spaced from -3 to 3.
-    b = np.linspace(-3, 3, num=num_items)
+    b = np.linspace(b_range[0], b_range[1], num=num_items)
     # Item i measures sub-scale c[i]. Select about the same number of items per subscale,
     # then randomly permute the item order.
     c = np.random.permutation(np.matlib.repmat(np.arange(num_latent_dimensions, dtype=int),
@@ -50,7 +54,8 @@ def generate_dichotomous_responses(num_persons, num_items: int,
     # Generate item responses (the observed data) (3PL model).
     p_correct = three_pl_model(theta[:, c], a, b, asymptote)
     if dichotomous:
-        x = np.random.binomial(1, p=p_correct)
+        x = np.random.binomial(num_trials, p=p_correct) / num_trials
+#        x = np.clip(x, 1e-8, 1 - 1e-8)
     else:
         x = p_correct
     return x, theta, b, c

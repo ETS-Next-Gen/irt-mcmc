@@ -19,11 +19,12 @@ class SolverItemClustering(nirt.solver.Solver):
                  grid_method: str = "uniform-fixed", improve_theta_method: str = "mle", num_iterations: int = 2,
                  num_theta_sweeps: int = 2, coarsest_resolution: int = 4, finest_resolution: int = None,
                  recorder=None, num_smoothing_sweeps: int = 0, theta_init: np.array = None,
-                 loss: str = "likelihood", alpha: float = 0.0, refine_irf: bool = False):
+                 loss: str = "likelihood", alpha: float = 0.0, refine_irf: bool = False, use_logit: bool = False):
         super(SolverItemClustering, self).__init__(
             x, item_classification, grid_method=grid_method, improve_theta_method=improve_theta_method,
             num_iterations=num_iterations, num_theta_sweeps=num_theta_sweeps,
-            num_smoothing_sweeps=num_smoothing_sweeps, theta_init=theta_init, loss=loss, alpha=alpha)
+            num_smoothing_sweeps=num_smoothing_sweeps, theta_init=theta_init, loss=loss, alpha=alpha,
+            use_logit=use_logit)
         self._recorder = recorder
         self._coarsest_resolution = coarsest_resolution
         self._finest_resolution = finest_resolution

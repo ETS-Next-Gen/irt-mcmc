@@ -18,7 +18,7 @@ class ItemResponseFunction:
         y: array<float> interpolation values.
     """
     def __init__(self, grid: nirt.grid.Grid, x: np.array, num_smoothing_sweeps: int = 0,
-                 histogram: str = "simple") -> None:
+                 histogram: str = "simple", boundary: str = "constant") -> None:
         # Calculate a simple histogram where each person contributes its full score value to its bin (generally: could
         # distribute a person's score into several neighboring bins).
         if histogram == "simple":
@@ -39,7 +39,14 @@ class ItemResponseFunction:
         self.node = node
         self.has_data = has_data
         self.x = np.concatenate(([2 * node[0] - node[1]], node, [2 * node[-1] - node[-2]]))
-        self.y = np.concatenate(([0], self.probability, [1]))
+        y = self.probability
+        if boundary == "constant":
+            boundary_values = [0, 1]
+        elif boundary == "extrapolation":
+            boundary_values = [2 * y[0] - y[1], 2 * y[-1] - y[-2]]
+        else:
+            raise ValueError("Unsupported boundary type '{}'".format(boundary))
+        self.y = np.concatenate(([boundary_values[0]], y, [boundary_values[1]]))
         for _ in range(num_smoothing_sweeps):
             relax(self.y)
         self.interpolant = scipy.interpolate.interp1d(self.x, self.y, bounds_error=False, fill_value=(0, 1))
@@ -53,14 +60,16 @@ class ItemResponseFunction:
         return "count {} score {} P {}".format(self.count, self.score, self.probability)
 
     def plot(self, ax: plt.Axes, title: str = r"Item Response Function", label: str = None, color: str = None,
-             xlim=(-nirt.grid.M, nirt.grid.M)) -> None:
+             point_color: str = None,
+             xlim = (-nirt.grid.M, nirt.grid.M), use_logit: bool = False) -> None:
         """
         Draws the IRF interpolant and interpolation nodes and values.
         Args:
             ax: figure axis to draw in.
             title: str, optional, default: None. Plot title.
             label: str, optional. Default: None. Plot line label.
-            color: str, optional. Default: None.
+            color: str, optional. Default: None. Interpolant point color.
+            point_color: str, optional. Default: None. Bin center point color.
 
         Returns: None.
         """
@@ -69,7 +78,7 @@ class ItemResponseFunction:
             xlim = (self.x[0], self.x[-1])
         t = np.linspace(xlim[0], xlim[1], 10 * len(self.x) + 1)
         ax.plot(t, self.interpolant(t), label=label, color=color)
-        ax.plot(self.x, self.y, color=color, marker="o")
+        ax.plot(self.x, self.y, "o", color=point_color)
         ax.set_xlabel(r"$\theta$")
         ax.set_ylabel(r"$P(X=1|\theta)$")
         ax.set_title(title)

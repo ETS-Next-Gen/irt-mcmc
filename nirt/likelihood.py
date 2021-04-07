@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import scipy.interpolate
 import scipy.optimize
+from scipy.special import logit
 
 # Smallest allowed argument to log inside log-likelihood computations to avoid negative infinity.
 SMALL = 1e-30
@@ -141,6 +142,9 @@ class Likelihood:
         elif loss == "l2":
             def f(theta_pc):
                 return self._l2_loss_sum_implementation(theta_pc, p, c)
+        elif loss == "l2_logit":
+            def f(theta_pc):
+                return self._l2_logit_loss_sum_implementation(theta_pc, p, c)
         else:
             raise Exception("Unsupported loss function {}".format(loss))
 
@@ -152,7 +156,7 @@ class Likelihood:
         if theta_init:
             # Search only within the bin the initial guess is in, and the two neighboring bins.
             # TODO: replace by binary search.
-            if theta_init < x[0]:
+            if theta_init <= x[0]:
                 bin = 0
             else:
                 bin = np.max(np.where(x < theta_init)[0])
@@ -203,7 +207,11 @@ class Likelihood:
         x = self._x[p]
         return sum((self._irf[i].interpolant(t) - x[i]) ** 2 for i in range(len(x)))
 
-    def l2_loss(self, t):
+    def _l2_logit_loss_sum_implementation(self, t, p, c):
+        x = self._x[p]
+        return sum((self._irf[i].interpolant(t) - x[i]) ** 2 for i in range(len(x)))
+
+    def l2_loss(self, t, use_logit: bool = False):
         """
         Returns the global L2 loss over all students and items. This assumes a uni-dimensional theta (C=1). This is
 
@@ -213,12 +221,17 @@ class Likelihood:
 
         Args:
             t: theta approximation.
+            use_logit: if True, transforms the IRF and x to logit before taking differences.
 
         Returns: L2 loss.
         """
         c = 0
-        return np.mean([(self._irf[i].interpolant(t[p]) - self._x[p, i]) ** 2
-                        for p in range(t.shape[0]) for i in range(self._x.shape[1])])
+        if use_logit:
+            return np.mean([(self._irf[i].interpolant(t[p]) - logit(self._x[p, i])) ** 2
+                            for p in range(t.shape[0]) for i in range(self._x.shape[1])])
+        else:
+            return np.mean([(self._irf[i].interpolant(t[p]) - self._x[p, i]) ** 2
+                            for p in range(t.shape[0]) for i in range(self._x.shape[1])])
 
 
 def initial_guess(x, c):

@@ -7,6 +7,7 @@ import nirt.mcmc
 import nirt.theta_improvement
 import numpy as np
 from typing import Tuple
+from scipy.special import logit
 
 
 class Solver:
@@ -14,8 +15,10 @@ class Solver:
     def __init__(self, x: np.array, item_classification: np.array,
                  grid_method: str = "quantile", improve_theta_method: str = "mcmc", num_iterations: int = 3,
                  num_theta_sweeps: int = 10, num_smoothing_sweeps: int = 0, theta_init: np.array = None,
-                 loss: str = "likelihood", alpha: float = 0.0):
+                 loss: str = "likelihood", alpha: float = 0.0, use_logit: bool = False):
         self.x = x
+        if use_logit:
+            self.x = logit(self.x)
         self.c = item_classification
         self.P = self.x.shape[0]
         self.num_items = self.x.shape[1]
@@ -29,6 +32,7 @@ class Solver:
         self._num_iterations = num_iterations
         self._num_theta_sweeps = num_theta_sweeps
         self._num_smoothing_sweeps = num_smoothing_sweeps
+        self._use_logit = use_logit
 
         # Determine the IRF axis for fixed resolutions.
         if theta_init is not None:
@@ -80,4 +84,5 @@ class Solver:
         grid = [nirt.grid.create_grid(theta_active[:, ci], num_bins, method=self._method, xlim=self._xlim[ci])
                 for ci in range(self.C)]
         return np.array([nirt.irf.ItemResponseFunction(
-            grid[self.c[i]], x[:, i], num_smoothing_sweeps=self._num_smoothing_sweeps) for i in range(x.shape[1])])
+            grid[self.c[i]], x[:, i], num_smoothing_sweeps=self._num_smoothing_sweeps,
+            boundary="extrapolation" if self._use_logit else "constant") for i in range(x.shape[1])])
